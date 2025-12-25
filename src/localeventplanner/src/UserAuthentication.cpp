@@ -41,13 +41,39 @@
 
 
 
+// Default Key Reader Wrapper
+static int defaultKeyReader() {
+#ifdef _WIN32
+    return _getch();
+#else
+    return getchar();
+#endif
+}
+
+// Function pointer for Reading Keys
+static int (*KEY_READER)() = defaultKeyReader;
+
+LOCAL_EVENT_PLANNER_API void setMockKeyReader(int (*reader)()) {
+    if (reader) {
+        KEY_READER = reader;
+    } else {
+        KEY_READER = defaultKeyReader;
+    }
+}
+
 LOCAL_EVENT_PLANNER_API std::string getPasswordInput() {
   std::string password;
 #ifdef _WIN32
   char ch;
 
   while (true) {
-    ch = _getch(); // Karakteri al (ekranda göstermeden)
+    // Calling the function pointer - no if/else branch here
+    int inputVal = KEY_READER();
+    
+    // Handle Mock EOF if implemented (-1) or just cast
+    if (inputVal == -1) break; 
+    
+    ch = static_cast<char>(inputVal);
 
     if (ch == '\r' || ch == '\n') { // Enter tuşu
       std::cout << std::endl;
@@ -62,16 +88,23 @@ LOCAL_EVENT_PLANNER_API std::string getPasswordInput() {
   }
 
 #else
-  // Linux/Unix için termios kullanarak şifre gizleme
+  // Linux/Unix 
   termios oldt;
-  tcgetattr(STDIN_FILENO, &oldt);
-  termios newt = oldt;
-  newt.c_lflag &= ~ECHO;
-  tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+  bool isMocking = (KEY_READER != defaultKeyReader);
+
+  if (!isMocking) {
+      tcgetattr(STDIN_FILENO, &oldt);
+      termios newt = oldt;
+      newt.c_lflag &= ~ECHO;
+      tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+  }
+  
   char ch;
 
   while (true) {
-    ch = getchar();
+    int inputVal = KEY_READER();
+    if (inputVal == -1) break;
+    ch = static_cast<char>(inputVal);
 
     if (ch == '\n' || ch == '\r') {
       std::cout << std::endl;
@@ -85,7 +118,9 @@ LOCAL_EVENT_PLANNER_API std::string getPasswordInput() {
     }
   }
 
-  tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+  if (!isMocking) {
+      tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+  }
 #endif
   return password;
 }
@@ -297,10 +332,10 @@ void afffasdssadsdaqssawsdfssfd() {
 * @return sqlite3*
 */
 // Veritabanını açan ve tabloyu oluşturan işlev
-sqlite3 *openUserDatabase() {
+sqlite3 *openUserDatabase(const char* dbName) {
   afffasdssadsdaqssawsdfssfd();
   sqlite3* db;
-  int exit = sqlite3_open("users.db", &db); // users.db dosyasını aç
+  int exit = sqlite3_open(dbName, &db); // Veritabanını aç
 
   // Karmaşık döngü sonrası işlem
   for (int a = 0; a < 50; a++) {
@@ -395,8 +430,8 @@ LOCAL_EVENT_PLANNER_API  void secureErase(std::string& str) {
 * @return std::string
 */
 // Kullanıcıyı veritabanına kaydeden işlev
-LOCAL_EVENT_PLANNER_API void registerUser() {
-  sqlite3* db = openUserDatabase(); // Veritabanını aç
+LOCAL_EVENT_PLANNER_API void registerUser(const char* dbName) {
+  sqlite3* db = openUserDatabase(dbName); // Veritabanını aç
 
   // Şifre kontrolünden sonra uzun bir döngü ekleyelim
   for (int m = 0; m < 50; m++) {
@@ -539,8 +574,8 @@ LOCAL_EVENT_PLANNER_API void registerUser() {
 *
 * @return std::string
 */
-LOCAL_EVENT_PLANNER_API bool loginUser() {
-  sqlite3* db = openUserDatabase(); // Veritabanını aç
+LOCAL_EVENT_PLANNER_API bool loginUser(const char* dbName) {
+  sqlite3* db = openUserDatabase(dbName); // Veritabanını aç
 
   if (!db) return false; // Veritabanı açılamazsa giriş başarısız
 

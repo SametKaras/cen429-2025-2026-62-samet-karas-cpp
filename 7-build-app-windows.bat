@@ -81,17 +81,17 @@ call copy testResults_windows.html "..\docs\testresultswin\index.html"
 cd ..
 
 echo Generate Test Coverage Data for Utility
-call OpenCppCoverage.exe --export_type=binary:utility_tests_unit_win.cov --sources src\utility\src --sources src\utility\header --sources src\tests\utility -- build_win\build\Debug\utility_tests.exe
+call "C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe" --export_type=binary:utility_tests_unit_win.cov --excluded_sources=*sqlite3* --sources src\utility\src --sources src\utility\header --sources src\tests\utility -- build_win\build\Debug\utility_tests.exe
 
 echo Generate Test Coverage Data for LocalEventPlanner
-call OpenCppCoverage.exe --export_type=binary:localeventplanner_tests_unit_win.cov --sources src\localeventplanner\src --sources src\localeventplanner\header --sources src\tests\localeventplanner -- build_win\build\Debug\localeventplanner_tests.exe
+call "C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe" --export_type=binary:localeventplanner_tests_unit_win.cov --excluded_sources=*sqlite3* --sources src\localeventplanner\src --sources src\localeventplanner\header --sources src\tests\localeventplanner -- build_win\build\Debug\LocalEventPlanner_tests.exe
 
 echo Generate Test Coverage Data for LocalEventPlanner App and Combine Results
-call OpenCppCoverage.exe --input_coverage=utility_tests_unit_win.cov --input_coverage=localeventplanner_tests_unit_win.cov --export_type=cobertura:localeventplannerapp_unit_win_cobertura.xml --sources src\utility\src --sources src\utility\header --sources src\localeventplanner\src --sources src\localeventplanner\header --sources src\localeventplannerapp\src --sources src\localeventplannerapp\header --sources src\tests\utility --sources src\tests\localeventplanner -- build_win\build\Debug\localeventplannerapp.exe
+call "C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe" --input_coverage=utility_tests_unit_win.cov --input_coverage=localeventplanner_tests_unit_win.cov --export_type=cobertura:localeventplannerapp_unit_win_cobertura.xml --excluded_sources=*sqlite3* --sources src\utility\src --sources src\utility\header --sources src\localeventplanner\src --sources src\localeventplanner\header --sources src\localeventplannerapp\src --sources src\localeventplannerapp\header --sources src\tests\utility --sources src\tests\localeventplanner -- build_win\build\Debug\localeventplannerapp.exe
 
 echo Generate Unit Test Coverage Report
-call reportgenerator "-title:LocalEventPlanner Library Unit Test Coverage Report (Windows)" "-targetdir:docs/coveragereportlibwin" "-reporttypes:Html" "-reports:**/localeventplannerapp_unit_win_cobertura.xml" "-sourcedirs:src/utility/src;src/utility/header;src/localeventplanner/src;src/localeventplanner/header;src/localeventplannerapp/src;src/localeventplannerapp/header;src/tests/utility;src/tests/localeventplanner" "-filefilters:-*minkernel\*;-*gtest*;-*a\_work\*;-*gtest-*;-*gtest.cc;-*gtest.h;-*build*" "-historydir:report_test_hist_win"
-call reportgenerator "-targetdir:assets/codecoveragelibwin" "-reporttypes:Badges" "-reports:**/localeventplannerapp_unit_win_cobertura.xml" "-sourcedirs:src/utility/src;src/utility/header;src/localeventplanner/src;src/localeventplanner/header;src/localeventplannerapp/src;src/localeventplannerapp/header;src/tests/utility;src/tests/localeventplanner" "-filefilters:-*minkernel\*;-*gtest*;-*a\_work\*;-*gtest-*;-*gtest.cc;-*gtest.h;-*build*"
+call reportgenerator "-title:LocalEventPlanner Library Unit Test Coverage Report (Windows)" "-targetdir:docs/coveragereportlibwin" "-reporttypes:Html" "-reports:**/localeventplannerapp_unit_win_cobertura.xml" "-sourcedirs:src/utility/src;src/utility/header;src/localeventplanner/src;src/localeventplanner/header;src/localeventplannerapp/src;src/localeventplannerapp/header;src/tests/utility;src/tests/localeventplanner" "-filefilters:-*minkernel\*;-*gtest*;-*a\_work\*;-*gtest-*;-*gtest.cc;-*gtest.h;-*build*;-*sqlite3*" "-historydir:report_test_hist_win"
+call reportgenerator "-targetdir:assets/codecoveragelibwin" "-reporttypes:Badges" "-reports:**/localeventplannerapp_unit_win_cobertura.xml" "-sourcedirs:src/utility/src;src/utility/header;src/localeventplanner/src;src/localeventplanner/header;src/localeventplannerapp/src;src/localeventplannerapp/header;src/tests/utility;src/tests/localeventplanner" "-filefilters:-*minkernel\*;-*gtest*;-*a\_work\*;-*gtest-*;-*gtest.cc;-*gtest.h;-*build*;-*sqlite3*"
 
 echo Copy the "assets" folder and its contents to "docs" recursively
 call robocopy assets "docs\assets" /E

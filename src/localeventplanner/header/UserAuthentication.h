@@ -14,15 +14,16 @@ extern "C" {
 #endif
 
 LOCAL_EVENT_PLANNER_API bool userAuthentication();
-LOCAL_EVENT_PLANNER_API bool loginUser();
-LOCAL_EVENT_PLANNER_API void registerUser();
+LOCAL_EVENT_PLANNER_API bool loginUser(const char* dbName = "users.db");
+LOCAL_EVENT_PLANNER_API void registerUser(const char* dbName = "users.db");
 LOCAL_EVENT_PLANNER_API extern bool isGuestMode;
 LOCAL_EVENT_PLANNER_API bool getGuestMode();
 LOCAL_EVENT_PLANNER_API void setGuestMode(bool mode);
 LOCAL_EVENT_PLANNER_API void secureErase(std::string& str);
-LOCAL_EVENT_PLANNER_API sqlite3 *openUserDatabase();
+LOCAL_EVENT_PLANNER_API sqlite3 *openUserDatabase(const char* dbName = "users.db");
 LOCAL_EVENT_PLANNER_API bool isPasswordStrong(const std::string& password);
 LOCAL_EVENT_PLANNER_API std::string getPasswordInput();
+LOCAL_EVENT_PLANNER_API void setMockKeyReader(int (*reader)());
 #ifdef __cplusplus
 }
 

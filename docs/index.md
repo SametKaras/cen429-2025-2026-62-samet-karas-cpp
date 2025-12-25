@@ -34,7 +34,7 @@ Yerel etkinliklerinizi planlamanızı sağlayan, C++ ile geliştirilmiş modüle
 3. `3-install-package-manager.bat`: Paket yöneticilerini kurar (choco, scoop).
 4. `4-install-windows-enviroment.bat`: Gerekli araç ve kütüphaneleri kurar (CMake, Ninja, OpenSSL vb.).
 
-Not: OpenSSL eksik ise CMake yapılandırması sırasında anahtar üretimi aşamasında hata alırsınız.
+Not: OpenSSL eksik ise CMake yapılandırması sırasında anahtar üretimi aşamasında hata alabilirsiniz.
 
 ### WSL/Linux
 
