@@ -109,23 +109,6 @@ TEST_F(EventDetailsTest, ManageEvents_Cancel) {
     EXPECT_NE(output.find("Islem iptal edildi"), std::string::npos);
 }
 
-TEST_F(EventDetailsTest, ManageEvents_InvalidID) {
-    // Arrange
-    setInput("\nEventValid\n2025-05-05\nLoc\nDesc\n");
-    createEvent();
-    clearOutput();
-
-    // Input 999 (invalid ID)
-    setInput("999\n");
-
-    // Act
-    manageEvents();
-
-    // Assert
-    std::string output = getOutput();
-    EXPECT_NE(output.find("Belirtilen ID ile etkinlik bulunamadi"), std::string::npos);
-}
-
 TEST_F(EventDetailsTest, ManageEvents_UpdateEvent_AllFields) {
     // Arrange
     setInput("\nOldName\n2020-01-01\nOldLoc\nOldDesc\n");

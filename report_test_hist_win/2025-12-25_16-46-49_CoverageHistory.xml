@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<coverage version="1.0" date="2025-12-25_16-46-49" tag="">
+  <assembly name="C:\Users\berhan\Desktop\cen429-2025-2026-62-samet-karas-cpp\build_win\build\Debug\LocalEventPlanner_tests.exe">
+    <class name="localeventplanner_test.cpp" coveredlines="417" coverablelines="428" totallines="847" coveredbranches="0" totalbranches="0" coveredcodeelements="0" fullcoveredcodeelements="0" totalcodeelements="0" />
+  </assembly>
+  <assembly name="C:\Users\berhan\Desktop\cen429-2025-2026-62-samet-karas-cpp\build_win\build\Debug\LocalEventPlanner.dll">
+    <class name="AttendeeManagement.cpp" coveredlines="244" coverablelines="261" totallines="403" coveredbranches="0" totalbranches="0" coveredcodeelements="0" fullcoveredcodeelements="0" totalcodeelements="0" />
+    <class name="DebugCheck.cpp" coveredlines="134" coverablelines="147" totallines="291" coveredbranches="0" totalbranches="0" coveredcodeelements="0" fullcoveredcodeelements="0" totalcodeelements="0" />
+    <class name="DisplayMainMenu.cpp" coveredlines="115" coverablelines="117" totallines="187" coveredbranches="0" totalbranches="0" coveredcodeelements="0" fullcoveredcodeelements="0" totalcodeelements="0" />
+    <class name="DynamicAssetProtection.cpp" coveredlines="167" coverablelines="176" totallines="356" coveredbranches="0" totalbranches="0" coveredcodeelements="0" fullcoveredcodeelements="0" totalcodeelements="0" />
+    <class name="EventDetails.cpp" coveredlines="130" coverablelines="350" totallines="530" coveredbranches="0" totalbranches="0" coveredcodeelements="0" fullcoveredcodeelements="0" totalcodeelements="0" />
+    <class name="Rasp.cpp" coveredlines="171" coverablelines="203" totallines="586" coveredbranches="0" totalbranches="0" coveredcodeelements="0" fullcoveredcodeelements="0" totalcodeelements="0" />
+    <class name="SaltAndHMAC.cpp" coveredlines="90" coverablelines="91" totallines="216" coveredbranches="0" totalbranches="0" coveredcodeelements="0" fullcoveredcodeelements="0" totalcodeelements="0" />
+    <class name="SessionEncryption.cpp" coveredlines="241" coverablelines="273" totallines="590" coveredbranches="0" totalbranches="0" coveredcodeelements="0" fullcoveredcodeelements="0" totalcodeelements="0" />
+    <class name="SignatureVerification.cpp" coveredlines="159" coverablelines="178" totallines="291" coveredbranches="0" totalbranches="0" coveredcodeelements="0" fullcoveredcodeelements="0" totalcodeelements="0" />
+    <class name="sqlite3.c" coveredlines="0" coverablelines="50682" totallines="282558" coveredbranches="0" totalbranches="0" coveredcodeelements="0" fullcoveredcodeelements="0" totalcodeelements="0" />
+    <class name="UserAuthentication.cpp" coveredlines="173" coverablelines="375" totallines="693" coveredbranches="0" totalbranches="0" coveredcodeelements="0" fullcoveredcodeelements="0" totalcodeelements="0" />
+    <class name="VersionAndDeviceBinding.cpp" coveredlines="78" coverablelines="101" totallines="217" coveredbranches="0" totalbranches="0" coveredcodeelements="0" fullcoveredcodeelements="0" totalcodeelements="0" />
+    <class name="WBAES.cpp" coveredlines="171" coverablelines="174" totallines="326" coveredbranches="0" totalbranches="0" coveredcodeelements="0" fullcoveredcodeelements="0" totalcodeelements="0" />
+  </assembly>
+  <assembly name="C:\Users\berhan\Desktop\cen429-2025-2026-62-samet-karas-cpp\build_win\build\Debug\LocalEventPlannerapp.exe">
+    <class name="localeventplannerapp.cpp" coveredlines="2" coverablelines="160" totallines="380" coveredbranches="0" totalbranches="0" coveredcodeelements="0" fullcoveredcodeelements="0" totalcodeelements="0" />
+    <class name="sqlite3.c" coveredlines="0" coverablelines="50682" totallines="282558" coveredbranches="0" totalbranches="0" coveredcodeelements="0" fullcoveredcodeelements="0" totalcodeelements="0" />
+  </assembly>
+</coverage>

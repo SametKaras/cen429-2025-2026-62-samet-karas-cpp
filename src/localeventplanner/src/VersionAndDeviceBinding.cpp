@@ -1,217 +1,264 @@
-/*
-* @file VersionAndDeviceBinding.cpp
-*
-* @brief Provides functions for version and device binding
-*
-* This file contains functions for checking the compatibility of the application version and the device brand.
-*/
-#include <iostream>
-#include <string>
-#include "VersionAndDeviceBinding.h"
+/**
+ * @file VersionAndDeviceBinding.cpp
+ * @brief Uygulama sürümü ve cihaz markası üzerinden uyumluluk (binding) kontrollerini sağlar.
+ *
+ * Bu dosya; uygulama sürümünün minimum gerekli sürüm ile uyumunu kontrol eden fonksiyonlar
+ * ve cihaz markasına göre basit cihaz uyumluluğu doğrulaması içerir.
+ * Ek olarak, analiz/karartma amaçlı dummy hesap fonksiyonları bulunmaktadır.
+ */
 
-#define APP_VERSION "1.2.0" // Mevcut uygulama sürümü
+#include <iostream>                  ///< std::cout/std::endl için.
+#include <string>                    ///< std::string için.
+#include "VersionAndDeviceBinding.h" ///< Export makroları ve fonksiyon prototipleri.
 
-const std::string REQUIRED_VERSION = "1.2.0"; // Minimum gereken sürüm
+#define APP_VERSION "1.2.0"          ///< Mevcut uygulama sürümü (compile-time sabit).
 
-/*
-* @brief Checks if the current version is compatible with the required version
-*
-* @param currentVersion The current version of the application
-*
-* @param requiredVersion The required version for compatibility
-*
-* @return bool
-*/
-// Sürüm kontrol fonksiyonu
-LOCAL_EVENT_PLANNER_API bool isVersionCompatible(const std::string& currentVersion, const std::string& requiredVersion) {
-  std::cout << "Mevcut Surum: " << currentVersion << std::endl;
-  return currentVersion == requiredVersion;
+const std::string REQUIRED_VERSION = "1.2.0"; ///< Minimum gereken sürüm (runtime sabit string).
+
+/**
+ * @brief Mevcut sürümün gerekli sürüm ile uyumlu olup olmadığını kontrol eder.
+ *
+ * Şu anki implementasyon, eşitlik kontrolü yapar (semver karşılaştırması yapmaz).
+ *
+ * @param currentVersion Uygulamanın mevcut sürümü.
+ * @param requiredVersion Uyumluluk için gereken sürüm.
+ * @return Sürümler eşitse true; değilse false.
+ */
+LOCAL_EVENT_PLANNER_API bool isVersionCompatible(const std::string& currentVersion,
+                                                 const std::string& requiredVersion) {
+  std::cout << "Mevcut Surum: " << currentVersion << std::endl; ///< Mevcut sürümü logla.
+  return currentVersion == requiredVersion;                     ///< Tam eşleşme kontrolü.
 }
 
-#include <vector>
+#include <vector>   ///< Dummy fonksiyonlar vektör kullanır.
+// #include <cmath> ///< std::sqrt için gerekli olabilir (mevcut kodda include edilmemiş).
 
-
+/**
+ * @brief Basit asal sayı kontrolü (dummy).
+ *
+ * @param value Kontrol edilecek değer.
+ * @return Asal ise true; değilse false.
+ */
 bool isPsadimeeasds(int value) {
-  if (value < 2) return false;
+  if (value < 2) return false;                 ///< 0 ve 1 asal değildir.
 
-  for (int i = 2; i <= std::sqrt(value); ++i) {
-    if (value % i == 0) return false;
+  for (int i = 2; i <= std::sqrt(value); ++i) {///< 2..sqrt(value) arası bölen ara.
+    if (value % i == 0) return false;          ///< Bölen bulunduysa asal değil.
   }
 
-  return true;
+  return true;                                 ///< Bölen yoksa asal.
 }
 
+/**
+ * @brief Dummy iş yükü üreten fonksiyon (karartma/analiz zorlaştırma amaçlı).
+ *
+ * Çeşitli sayımlar ve matematiksel işlemler gerçekleştirir; çıktıları kullanılmaz.
+ */
 void afffasdzzxczxfd() {
-  std::vector<int> data = { 1, 2, 3, 4, 5, 6, 7, 16, 25, 30 };
-  int evenCount = 0, oddCount = 0, primeCount = 0;
-  int sumMultiplesOfFive = 0, perfectSquareCount = 0;
-  int divisibleByThreeCount = 0, digitSumGreaterThanTen = 0;
-  long long unnecessaryComputationSum = 0;
-  long long specialConditionCount = 0, modSevenCount = 0;
-  double accumulatedSquareRoots = 0.0;
-  int totalDigitProduct = 1;
+  std::vector<int> data = { 1, 2, 3, 4, 5, 6, 7, 16, 25, 30 }; ///< Örnek veri kümesi.
+  int evenCount = 0, oddCount = 0, primeCount = 0;            ///< Çift/tek/asal sayaçlar.
+  int sumMultiplesOfFive = 0, perfectSquareCount = 0;          ///< 5 katları toplamı / tam kare sayacı.
+  int divisibleByThreeCount = 0, digitSumGreaterThanTen = 0;   ///< 3 katı sayacı / basamak toplamı eşiği sayacı.
+  long long unnecessaryComputationSum = 0;                     ///< Gereksiz hesap toplamı.
+  long long specialConditionCount = 0, modSevenCount = 0;      ///< Özel koşul / 7'ye bölünen sayacı.
+  double accumulatedSquareRoots = 0.0;                         ///< Karekök birikimi.
+  int totalDigitProduct = 1;                                   ///< Basamak çarpımı birikimi.
 
-  for (int value : data) {
-    int intermediate = value * 3;
-    intermediate += 7;
-    intermediate /= 2;
-    intermediate *= value % 5;
-    unnecessaryComputationSum += intermediate;
+  for (int value : data) {                                     ///< İlk veri seti üzerinde dön.
+    int intermediate = value * 3;                              ///< Ara değer üret.
+    intermediate += 7;                                         ///< Sabit ekle.
+    intermediate /= 2;                                         ///< Böl.
+    intermediate *= value % 5;                                 ///< Mod tabanlı çarp.
+    unnecessaryComputationSum += intermediate;                  ///< Toplama ekle.
 
-    if (value % 2 == 0) {
-      evenCount++;
-      continue;
+    if (value % 2 == 0) {                                      ///< Çift sayı mı?
+      evenCount++;                                             ///< Çift sayacı artır.
+      continue;                                                ///< Tek sayılara özel kısımları atla.
     }
 
-    oddCount++;
+    oddCount++;                                                ///< Tek sayacı artır.
 
-    if (isPsadimeeasds(value)) {
-      primeCount++;
+    if (isPsadimeeasds(value)) {                               ///< Asal kontrolü.
+      primeCount++;                                            ///< Asal sayacı artır.
     }
 
-    if (value % 5 == 0) {
-      sumMultiplesOfFive += value;
+    if (value % 5 == 0) {                                      ///< 5'in katı mı?
+      sumMultiplesOfFive += value;                             ///< Topla.
     }
 
-    int sqrtValue = std::sqrt(value);
+    int sqrtValue = std::sqrt(value);                          ///< Karekökün tam sayı kısmı.
 
-    if (sqrtValue * sqrtValue == value) {
-      perfectSquareCount++;
+    if (sqrtValue * sqrtValue == value) {                      ///< Tam kare kontrolü.
+      perfectSquareCount++;                                    ///< Tam kare sayacı.
     }
 
-    if (value % 3 == 0) {
-      divisibleByThreeCount++;
+    if (value % 3 == 0) {                                      ///< 3'e bölünür mü?
+      divisibleByThreeCount++;                                 ///< Sayaç artır.
     }
 
-    if (value % 7 == 0) {
-      modSevenCount++;
+    if (value % 7 == 0) {                                      ///< 7'ye bölünür mü?
+      modSevenCount++;                                         ///< Sayaç artır.
     }
 
-    int digitSum = 0, digitProduct = 1;
-    int temp = value;
+    int digitSum = 0, digitProduct = 1;                        ///< Basamak toplamı/çarpımı.
+    int temp = value;                                          ///< Basamak ayrıştırma için kopya.
 
-    while (temp > 0) {
-      int digit = temp % 10;
-      digitSum += digit;
-      digitProduct *= digit;
-      temp /= 10;
+    while (temp > 0) {                                         ///< Basamaklar bitene kadar.
+      int digit = temp % 10;                                   ///< Son basamak.
+      digitSum += digit;                                       ///< Toplama ekle.
+      digitProduct *= digit;                                   ///< Çarpıma ekle.
+      temp /= 10;                                              ///< Bir basamak düş.
     }
 
-    if (digitSum > 10) {
-      digitSumGreaterThanTen++;
+    if (digitSum > 10) {                                       ///< Basamak toplamı eşiği.
+      digitSumGreaterThanTen++;                                ///< Sayaç artır.
     }
 
-    totalDigitProduct *= (digitProduct % 1000);
-    accumulatedSquareRoots += std::sqrt(value);
+    totalDigitProduct *= (digitProduct % 1000);                ///< Çarpımı sınırlayıp biriktir.
+    accumulatedSquareRoots += std::sqrt(value);                ///< Karekök birikimi.
 
-    if (value % 2 == 0 && value % 3 == 0) {
-      specialConditionCount++;
+    if (value % 2 == 0 && value % 3 == 0) {                     ///< 6'nın katı mı?
+      specialConditionCount++;                                 ///< Sayaç artır.
     }
 
-    unnecessaryComputationSum += digitSum * 5 - value / 3 + 17;
+    unnecessaryComputationSum += digitSum * 5 - value / 3 + 17; ///< Ek gürültü hesabı.
   }
 
-  std::vector<int> additionalData = { 12, 18, 22, 36, 45, 60, 72 };
+  std::vector<int> additionalData = { 12, 18, 22, 36, 45, 60, 72 }; ///< Ek veri.
 
-  for (int value : additionalData) {
-    int dummyCalculation = value * 2 + 3;
-    unnecessaryComputationSum += dummyCalculation % 10;
-    accumulatedSquareRoots += std::sqrt(dummyCalculation);
+  for (int value : additionalData) {                            ///< Ek veri üzerinde dön.
+    int dummyCalculation = value * 2 + 3;                       ///< Dummy hesap.
+    unnecessaryComputationSum += dummyCalculation % 10;          ///< Mod katkısı.
+    accumulatedSquareRoots += std::sqrt(dummyCalculation);       ///< Karekök katkısı.
   }
 
-  std::vector<int> finalData = { 101, 202, 303, 404, 505 };
+  std::vector<int> finalData = { 101, 202, 303, 404, 505 };      ///< Final veri.
 
-  for (int value : finalData) {
-    int dummyCalculation = value * 3 - 5;
-    unnecessaryComputationSum += dummyCalculation % 20;
-    accumulatedSquareRoots += std::sqrt(dummyCalculation);
+  for (int value : finalData) {                                 ///< Final veri üzerinde dön.
+    int dummyCalculation = value * 3 - 5;                        ///< Dummy hesap.
+    unnecessaryComputationSum += dummyCalculation % 20;          ///< Mod katkısı.
+    accumulatedSquareRoots += std::sqrt(dummyCalculation);       ///< Karekök katkısı.
   }
+
+  // Sonuçlar kullanılmıyor; amaç iş yükü üretmek olabilir.
+  (void)evenCount; (void)oddCount; (void)primeCount;
+  (void)sumMultiplesOfFive; (void)perfectSquareCount;
+  (void)divisibleByThreeCount; (void)digitSumGreaterThanTen;
+  (void)unnecessaryComputationSum; (void)specialConditionCount;
+  (void)modSevenCount; (void)accumulatedSquareRoots;
+  (void)totalDigitProduct;
 }
 
-/*
-* @brief Checks if the environment is compatible with the application
-*
-* @return bool
-*/
-// Tüm ortamı kontrol eden soyutlama fonksiyonu
+/**
+ * @brief Ortamın uygulama ile uyumlu olup olmadığını kontrol eder.
+ *
+ * Şu anki tasarımda:
+ * - Dummy iş yükü çalıştırılır.
+ * - Sürüm uyumu kontrol edilir.
+ *
+ * @return Ortam uyumluysa true; değilse false.
+ */
 LOCAL_EVENT_PLANNER_API bool isEnvironmentCompatible() {
-  afffasdzzxczxfd();
-  return isVersionCompatible(APP_VERSION, REQUIRED_VERSION);
+  afffasdzzxczxfd();                                  ///< Dummy iş yükü (yan etkisiz).
+  return isVersionCompatible(APP_VERSION, REQUIRED_VERSION); ///< Sürüm uyumu kontrolü.
 }
 
 #ifdef _WIN32
-#include <windows.h>
+#include <windows.h> ///< Windows Registry API (RegGetValueA) vb.
 
-/*
-* @brief Gets the device brand for Windows
-*
-* @return std::string
-*/
-// Windows için cihaz markası alma
+/**
+ * @brief Windows üzerinde cihaz/üretici markasını döndürür.
+ *
+ * Registry'den `HKEY_LOCAL_MACHINE\HARDWARE\DESCRIPTION\System\BIOS` altındaki
+ * `SystemManufacturer` değerini okumayı dener.
+ *
+ * @return Üretici/marka; okunamazsa "Unknown".
+ */
 LOCAL_EVENT_PLANNER_API std::string getDeviceBrand() {
-  char buffer[128];
-  DWORD size = sizeof(buffer);
+  char buffer[128];                                   ///< Registry string değeri için buffer.
+  DWORD size = sizeof(buffer);                        ///< Buffer boyutu (byte).
 
-  if (RegGetValueA(HKEY_LOCAL_MACHINE, "HARDWARE\\DESCRIPTION\\System\\BIOS", "SystemManufacturer", RRF_RT_REG_SZ, nullptr, buffer, &size) == ERROR_SUCCESS) {
-    return std::string(buffer);
+  if (RegGetValueA(HKEY_LOCAL_MACHINE,                               ///< HKLM hive.
+                   "HARDWARE\\DESCRIPTION\\System\\BIOS",             ///< Registry key yolu.
+                   "SystemManufacturer",                             ///< Value adı.
+                   RRF_RT_REG_SZ,                                    ///< String tipinde değer beklenir.
+                   nullptr,                                          ///< Type out param kullanılmıyor.
+                   buffer,                                           ///< Çıktı buffer'ı.
+                   &size) == ERROR_SUCCESS) {                        ///< Başarı kontrolü.
+    return std::string(buffer);                       ///< Okunan üretici adını döndür.
   }
 
-  return "Unknown";
+  return "Unknown";                                   ///< Okunamazsa varsayılan.
 }
 
 #else
-#include <cstdlib>
-#include <cstdio>
+#include <cstdlib> ///< popen/pclose bazı platformlarda burada bildirilir (uygulamaya göre).
+#include <cstdio>  ///< FILE*, popen, fgets, pclose için.
 
-// Linux/MacOS için cihaz markası alma
+/**
+ * @brief Linux/MacOS üzerinde cihaz/üretici markasını döndürür.
+ *
+ * `cat /sys/class/dmi/id/sys_vendor` komutu çalıştırılarak sistem üreticisi okunur.
+ *
+ * @return Üretici/marka; hata durumunda "Unknown".
+ *
+ * @note Bu yaklaşım, DMI bilgisi olmayan sistemlerde veya izin kısıtlarında çalışmayabilir.
+ */
 LOCAL_EVENT_PLANNER_API std::string getDeviceBrand() {
-  FILE* pipe = popen("cat /sys/class/dmi/id/sys_vendor", "r");
+  FILE* pipe = popen("cat /sys/class/dmi/id/sys_vendor", "r"); ///< Komut çıktısını okumak için pipe aç.
+  if (!pipe) return "Unknown";                                 ///< Pipe açılamazsa.
 
-  if (!pipe) return "Unknown";
+  char buffer[128];                                            ///< Satır buffer'ı.
+  std::string result;                                          ///< Toplanacak çıktı.
 
-  char buffer[128];
-  std::string result;
-
-  while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-    result += buffer;
+  while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {      ///< Satır satır oku.
+    result += buffer;                                          ///< Sonuca ekle.
   }
 
-  pclose(pipe);
-  return result;
+  pclose(pipe);                                                ///< Pipe'ı kapat.
+  return result;                                               ///< Markayı döndür (sonunda newline olabilir).
 }
 
 #endif
 
-
-
-
-/*
-* @brief Checks if the device is compatible with the application
-*
-* @return bool
-*/
+/**
+ * @brief Cihazın uygulama ile uyumlu olup olmadığını kontrol eder.
+ *
+ * İş akışı:
+ * - Dummy iş yükü çalıştırılır.
+ * - Çeşitli dummy aritmetik döngüsü yürütülür.
+ * - Cihaz markası okunur ve loglanır.
+ * - Marka içinde "HP" veya "ASUS" geçiyorsa uyumlu kabul edilir.
+ *
+ * @return Uyumluysa true; değilse false.
+ */
 LOCAL_EVENT_PLANNER_API bool isDeviceCompatible() {
-  afffasdzzxczxfd();
-  int resulst = 0;
-  int temsp = 1;
-  int bs = 5;
-  int cde = 18;
+  afffasdzzxczxfd();                                           ///< Dummy iş yükü.
 
-  for (int i = 1; i <= 10; ++i) {
-    temsp *= i % 3 + 1;         // Mod ve çarpma işlemi
-    resulst += temsp % 7 - 2;    // Mod, toplama ve çıkarma işlemi
-    resulst ^= (i * 5) & 3;     // XOR ve AND işlemi
+  int resulst = 0;                                             ///< Dummy akümülatör.
+  int temsp = 1;                                               ///< Dummy çarpan.
+  int bs = 5;                                                  ///< Dummy değişken.
+  int cde = 18;                                                ///< Dummy değişken.
 
-    if (resulst % 4 == 0) {     // Şartlı bir dönüşüm
-      resulst += temsp / 2;
+  for (int i = 1; i <= 10; ++i) {                              ///< 10 iterasyonluk dummy döngü.
+    temsp *= i % 3 + 1;         // Mod ve çarpma işlemi         ///< Mod + çarpma.
+    resulst += temsp % 7 - 2;    // Mod, toplama ve çıkarma     ///< Mod + toplama/çıkarma.
+    resulst ^= (i * 5) & 3;     // XOR ve AND işlemi           ///< Bitwise XOR ve AND.
+
+    if (resulst % 4 == 0) {     // Şartlı bir dönüşüm           ///< Koşullu dönüşüm.
+      resulst += temsp / 2;                                     ///< Dummy güncelleme.
     }
 
-    bs = cde + bs;
-    temsp += resulst % 9;        // Döngü değişkeni üzerinde ek bir işlem
+    bs = cde + bs;                                             ///< Dummy toplama.
+    temsp += resulst % 9;        // Döngü değişkeni üzerinde ek ///< Döngü içi ek gürültü.
   }
 
-  cde = cde + bs;
-  std::string brand = getDeviceBrand();
-  std::cout << "Cihaz Markasi: " << brand << std::endl;
-  return (brand.find("HP") != std::string::npos || brand.find("ASUS") != std::string::npos);
+  cde = cde + bs;                                              ///< Dummy final toplama.
+  (void)resulst; (void)temsp; (void)bs; (void)cde;             ///< Kullanılmayan değişken uyarılarını bastır.
+
+  std::string brand = getDeviceBrand();                        ///< Cihaz markasını al.
+  std::cout << "Cihaz Markasi: " << brand << std::endl;        ///< Markayı logla.
+
+  return (brand.find("HP") != std::string::npos ||             ///< HP içeriyorsa uyumlu.
+          brand.find("ASUS") != std::string::npos);            ///< ASUS içeriyorsa uyumlu.
 }

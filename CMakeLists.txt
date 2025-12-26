@@ -102,12 +102,12 @@ endif()
 
 # Logger submodule
 if(ENABLE_LocalEventPlanner)
-	add_subdirectory(${ROOT}/LocalEventPlanner)
+	add_subdirectory(${ROOT}/localeventplanner)
 endif()
 
 # BigInteger for Crypto submodule
 if(ENABLE_LocalEventPlanner_APP)
-	add_subdirectory(${ROOT}/LocalEventPlannerapp)
+	add_subdirectory(${ROOT}/localeventplannerapp)
 endif()
 
 # Tests

@@ -3,39 +3,38 @@
 #define SESSION_ENCRYPTION_H
 
 #ifdef LOCAL_EVENT_PLANNER_LIB_EXPORTS
-#define LOCAL_EVENT_PLANNER_API __declspec(dllexport)  // DLL oluþturulurken dýþa aktarým
+#define LOCAL_EVENT_PLANNER_API __declspec(dllexport)  // DLL oluï¿½turulurken dï¿½ï¿½a aktarï¿½m
 #else
-#define LOCAL_EVENT_PLANNER_API __declspec(dllimport)  // DLL kullanýlýrken içe aktarým
+#define LOCAL_EVENT_PLANNER_API __declspec(dllimport)  // DLL kullanï¿½lï¿½rken iï¿½e aktarï¿½m
 #endif
 
-#include "LocalEventPlanner.h"
 #include <string>
-#include "sqlite3.h"  // sqlite3_stmt kullanýmý için gerekli
+#include "sqlite3.h"  // sqlite3_stmt kullanï¿½mï¿½ iï¿½in gerekli
 #include <vector>
 
 
 
 
-// Oturum verilerini þifreleme ve deþifreleme
+// Oturum verilerini ï¿½ifreleme ve deï¿½ifreleme
 LOCAL_EVENT_PLANNER_API std::string encryptSessionData(const std::string& data);
 LOCAL_EVENT_PLANNER_API std::string decryptSessionData(const std::string& encryptedData);
 
-// Anahtar þifreleme ve deþifreleme
+// Anahtar ï¿½ifreleme ve deï¿½ifreleme
 LOCAL_EVENT_PLANNER_API std::string encryptKey(const unsigned char* key, size_t keyLen);
 LOCAL_EVENT_PLANNER_API bool decryptKey(const std::string& encryptedKey, unsigned char* key, size_t keyLen);
 
-// Þifrelenmiþ oturum anahtarý ve IV'yi alma
+// ï¿½ifrelenmiï¿½ oturum anahtarï¿½ ve IV'yi alma
 LOCAL_EVENT_PLANNER_API std::string getEncryptedSessionKey();
 LOCAL_EVENT_PLANNER_API std::string getEncryptedSessionIV();
 
-// Oturum anahtarýný ve IV'yi ayarlama
+// Oturum anahtarï¿½nï¿½ ve IV'yi ayarlama
 LOCAL_EVENT_PLANNER_API bool setSessionKey(const std::string& encryptedSessionKey);
 LOCAL_EVENT_PLANNER_API bool setSessionIV(const std::string& encryptedSessionIV);
 
-// Oturum þifrelemesini baþlatan ve anahtarlarý yöneten fonksiyon
+// Oturum ï¿½ifrelemesini baï¿½latan ve anahtarlarï¿½ yï¿½neten fonksiyon
 LOCAL_EVENT_PLANNER_API bool setupSessionEncryption();
 
-// Kullanýcý bilgilerini toplayan ve oturum verilerini þifreleyen fonksiyon
+// Kullanï¿½cï¿½ bilgilerini toplayan ve oturum verilerini ï¿½ifreleyen fonksiyon
 LOCAL_EVENT_PLANNER_API bool collectAndEncryptSessionData(sqlite3_stmt* stmt);
 
 // Base64 kodlama fonksiyonu

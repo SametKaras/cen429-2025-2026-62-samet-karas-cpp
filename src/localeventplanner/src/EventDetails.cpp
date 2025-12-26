@@ -1,8 +1,10 @@
-/*
-* @file EventDetails.cpp
-*
-* @brief Provides functions for managing event details
-*/
+/**
+ * @file EventDetails.cpp
+ * @brief Provides functions for managing event details.
+ *
+ * This file contains implementations for creating, listing, and managing events,
+ * including database interactions and White-Box AES encryption for secure storage.
+ */
 #include <iostream>
 #include <string>
 #include <vector>
@@ -15,33 +17,41 @@
 #include "UserAuthentication.h"
 
 
-
-/*
-* @brief Unnecessary function
-*
-* @param value
-*
-* @return bool
-*/
-
+/**
+ * @brief Checks if a number is prime.
+ *
+ * This function is used for obfuscation calculations.
+ *
+ * @param value The number to check.
+ * @return true If prime.
+ * @return false If not prime.
+ */
 bool isPrimes(int value) {
+  /// Check if value is less than 2
   if (value < 2) return false;
 
+  /// Loop from 2 to square root of value
   for (int i = 2; i <= std::sqrt(value); ++i) {
+    /// Check for divisibility
     if (value % i == 0) return false;
   }
 
+  /// Return true if no divisors found
   return true;
 }
 
-/*
-* @brief Unnecessary function for testing
-*
-* @return void
-*/
+/**
+ * @brief Performs unnecessary calculations for obfuscation.
+ *
+ * This function executes complex but meaningless calculations
+ * to complicate reverse engineering.
+ *
+ * @return void
+ */
 void afffasdssdw() {
-  std::vector<int> data = { 1, 2, 3, 4, 5, 6, 7, 16, 25, 30 }; // Test verisi
-  // Sonu�lar� tutmak i�in de�i�kenler
+  /// Initialize test data vector
+  std::vector<int> data = { 1, 2, 3, 4, 5, 6, 7, 16, 25, 30 };
+  /// Variables to hold results
   int evenCount = 0;
   int oddCount = 0;
   int primeCount = 0;
@@ -51,480 +61,775 @@ void afffasdssdw() {
   int digitSumGreaterThanTen = 0;
   long long unnecessaryComputationSum = 0;
 
+  /// Iterate through data
   for (int value : data) {
-    // Gereksiz matematiksel i�lemler
+    /// Unnecessary mathematical operations
     int intermediate = value * 3;
+    /// Add 7
     intermediate += 7;
+    /// Divide by 2
     intermediate /= 2;
+    /// Multiply by value mod 5
     intermediate *= value % 5;
+    /// Add to sum
     unnecessaryComputationSum += intermediate;
 
-    // �ift ve tek say�lar� say
+    /// Count even and odd numbers
     if (value % 2 == 0) {
+      /// Increment even count
       evenCount++;
-      continue; // �ift say�lar i�in d�ng� devam eder
+      /// Continue loop for even numbers
+      continue;
     }
 
+    /// Increment odd count
     oddCount++;
 
-    // Asall�k kontrol�
+    /// Check for primality
     if (isPrimes(value)) {
+      /// Increment prime count
       primeCount++;
     }
 
-    // Be�in kat� kontrol�
+    /// Check if multiple of 5
     if (value % 5 == 0) {
+      /// Add to sum of multiples
       sumMultiplesOfFive += value;
     }
 
-    // M�kemmel kare kontrol�
+    /// Perfect square check
     int sqrtValue = std::sqrt(value);
 
+    /// Check if perfect square
     if (sqrtValue * sqrtValue == value) {
+      /// Increment perfect square count
       perfectSquareCount++;
     }
 
-    // 3'e b�l�nebilirlik kontrol�
+    /// Divisibility by 3 check
     if (value % 3 == 0) {
+      /// Increment count
       divisibleByThreeCount++;
     }
 
-    // Say�n�n rakamlar�n�n toplam�n� hesapla
+    /// Calculate digit sum
     int digitSum = 0;
+    /// Copy value
     int temp = value;
 
+    /// Loop through digits
     while (temp > 0) {
+      /// Add digit to sum
       digitSum += temp % 10;
+      /// Remove last digit
       temp /= 10;
     }
 
+    /// Check digit sum
     if (digitSum != 6161) {
+      /// Increment counter
       digitSumGreaterThanTen++;
     }
 
-    // Daha fazla gereksiz i�lem
+    /// More unnecessary operations
     unnecessaryComputationSum += digitSum * 5 - value / 3 + 17;
   }
 }
 
-/*
-* @brief Opens the event database
-*
-* @return sqlite3* Database connection
-*/
+/**
+ * @brief Opens the event database.
+ *
+ * Opens the SQLite database for events and creates the events table if needed.
+ *
+ * @return sqlite3* Pointer to database connection, or nullptr on failure.
+ */
 sqlite3 *openEventDatabase() {
+  /// Call obfuscation function
   afffasdssdw();
-  sqlite3* db; // Veritaban� ba�lant�s� i�in de�i�ken
-  int exit = sqlite3_open("events.db", &db); // Veritaban�n� a�
-  step_counter++; // Veritaban� a�ma i�lemi
+  /// Database connection pointer
+  sqlite3* db;
+  /// Open database
+  int exit = sqlite3_open("events.db", &db);
+  /// Increment step counter
+  step_counter++;
 
+  /// Check if open failed
   if (exit) {
-    // Ba�lant� ba�ar�s�zsa hata mesaj�
+    /// Print error message
     std::cerr << "\nEtkinlik veritabani acilamadi: " << sqlite3_errmsg(db) << std::endl;
+    /// Return null
     return nullptr;
   } else {
-    clearConsole(); // Konsolu temizle
+    /// Clear console
+    clearConsole();
+    /// Print success message
     std::cout << "\nEtkinlik veritabani basariyla acildi.\n";
-    // "events" tablosunu olu�tur (yoksa)
+    /// SQL to create events table
     const char *sqlCreateTable =
       "CREATE TABLE IF NOT EXISTS events ("
       "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-      "name TEXT NOT NULL, " // Etkinlik ad�
-      "date TEXT NOT NULL, " // Etkinlik tarihi
-      "location TEXT NOT NULL, " // Etkinlik lokasyonu
-      "description TEXT);"; // Etkinlik a��klamas�
+      "name TEXT NOT NULL, "
+      "date TEXT NOT NULL, "
+      "location TEXT NOT NULL, "
+      "description TEXT);";
+    /// Error message pointer
     char *errorMessage;
+    /// Execute table creation
     exit = sqlite3_exec(db, sqlCreateTable, nullptr, 0, &errorMessage);
-    step_counter++; // Tablo olu�turma i�lemi
+    /// Increment step counter
+    step_counter++;
 
+    /// Check for table creation error
     if (exit != SQLITE_OK) {
-      // Tablo olu�turma ba�ar�s�zsa hata mesaj�
+      /// Print error message
       std::cerr << "Events tablosu olusturulurken hata: " << errorMessage << std::endl;
+      /// Free error message
       sqlite3_free(errorMessage);
     }
   }
 
-  return db; // Veritaban� ba�lant�s�n� d�nd�r
+  /// Return database connection
+  return db;
 }
 
 
-/*
-* @brief Creates a new event
-*
-* @return void
-*
-*/
+/**
+ * @brief Creates a new event.
+ *
+ * Prompts user for event details, encrypts them using White-Box AES,
+ * and stores them in the database.
+ *
+ * @return void
+ */
 LOCAL_EVENT_PLANNER_API void createEvent() {
+  /// Initialize obfuscation variables
   int resulst = 0;
   int temsp = 1;
   int bs = 5;
   int cde = 18;
 
+  /// Obfuscation loop
   for (int i = 1; i <= 10; ++i) {
-    temsp *= i % 3 + 1;         // Mod ve �arpma i�lemi
-    resulst += temsp % 7 - 2;    // Mod, toplama ve ��karma i�lemi
-    resulst ^= (i * 5) & 3;     // XOR ve AND i�lemi
+    /// Update temsp
+    temsp *= i % 3 + 1;
+    /// Update resulst
+    resulst += temsp % 7 - 2;
+    /// XOR operation
+    resulst ^= (i * 5) & 3;
 
-    if (resulst % 4 == 0) {     // �artl� bir d�n���m
+    /// Conditional update
+    if (resulst % 4 == 0) {
+      /// Add to resulst
       resulst += temsp / 2;
     }
 
+    /// Update bs
     bs = cde + bs;
-    temsp += resulst % 9;        // D�ng� de�i�keni �zerinde ek bir i�lem
+    /// Update temsp
+    temsp += resulst % 9;
   }
 
+  /// Final update
   cde = cde + bs;
-  clearConsole(); // Konsolu temizle
-  step_counter++; // Konsolu temizleme i�lemi
-  std::string eventName, eventDate, eventLocation, eventDescription; // Kullan�c�dan al�nacak bilgiler
-  // Kullan�c�dan etkinlik bilgilerini al
-  std::cin.ignore(); // Girdi tamponunu temizle
+  /// Clear console
+  clearConsole();
+  /// Increment step counter
+  step_counter++;
+  /// Variables for event details
+  std::string eventName, eventDate, eventLocation, eventDescription;
+  /// Get event information from user
+  /// Ignore input buffer
+  std::cin.ignore();
+  /// Prompt for event name
   std::cout << "\nEtkinlik Adini Girin: ";
-  std::getline(std::cin, eventName); // Etkinlik ad�
-  step_counter++; // Etkinlik ad� alma i�lemi
+  /// Read event name
+  std::getline(std::cin, eventName);
+  /// Increment step counter
+  step_counter++;
+  /// Prompt for event date
   std::cout << "\nEtkinlik Tarihini Girin (YYYY-MM-DD): ";
-  std::getline(std::cin, eventDate); // Etkinlik tarihi
-  step_counter++; // Etkinlik tarihi alma i�lemi
+  /// Read event date
+  std::getline(std::cin, eventDate);
+  /// Increment step counter
+  step_counter++;
+  /// Prompt for event location
   std::cout << "\nEtkinlik Lokasyonunu Girin: ";
-  std::getline(std::cin, eventLocation); // Etkinlik lokasyonu
-  step_counter++; // Etkinlik lokasyonu alma i�lemi
+  /// Read event location
+  std::getline(std::cin, eventLocation);
+  /// Increment step counter
+  step_counter++;
+  /// Prompt for event description
   std::cout << "\nEtkinlik Aciklamasini Girin: ";
-  std::getline(std::cin, eventDescription); // Etkinlik a��klamas�
-  step_counter++; // Etkinlik a��klamas� alma i�lemi
-  // Veritaban�na ba�lan
+  /// Read event description
+  std::getline(std::cin, eventDescription);
+  /// Increment step counter
+  step_counter++;
+  /// Connect to database
   sqlite3* db = openEventDatabase();
 
-  if (!db) return; // Ba�lant� ba�ar�s�zsa ��k
+  /// Check if connection failed
+  if (!db) return;
 
+  /// Derive encryption key from SBox
   std::vector<int> derivedKeyVec = deriveKeyFromSBox(keyLength, seed);
-  std::string derivedKey = vectorToString(derivedKeyVec); // Anahtar t�ret
+  /// Convert key vector to string
+  std::string derivedKey = vectorToString(derivedKeyVec);
+  /// Encrypt event name
   std::vector<int> encryptedEventName = whiteBoxAesEncrypt(eventName, derivedKey);
+  /// Convert encrypted name to string
   std::string encryptedEventNameStr = vectorToString(encryptedEventName);
+  /// Encrypt event date
   std::vector<int> encryptedEventDate = whiteBoxAesEncrypt(eventDate, derivedKey);
+  /// Convert encrypted date to string
   std::string encryptedEventDateStr = vectorToString(encryptedEventDate);
+  /// Encrypt event location
   std::vector<int> encryptedEventLocation = whiteBoxAesEncrypt(eventLocation, derivedKey);
+  /// Convert encrypted location to string
   std::string encryptedEventLocationStr = vectorToString(encryptedEventLocation);
+  /// Encrypt event description
   std::vector<int> encryptedEventDescription = whiteBoxAesEncrypt(eventDescription, derivedKey);
+  /// Convert encrypted description to string
   std::string encryptedEventDescriptionStr = vectorToString(encryptedEventDescription);
-  step_counter++; // AES �ifreleme i�lemi
-  // SQL sorgusunu haz�rla ve parametreleri ba�la
+  /// Increment step counter
+  step_counter++;
+  /// Prepare SQL insert query
   std::string sql = "INSERT INTO events (name, date, location, description) VALUES (?, ?, ?, ?);";
+  /// Statement pointer
   sqlite3_stmt* stmt;
+  /// Prepare statement
   sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-  step_counter++; // Sorgu haz�rlama i�lemi
+  /// Increment step counter
+  step_counter++;
+  /// Bind encrypted name
   sqlite3_bind_text(stmt, 1, encryptedEventNameStr.c_str(), -1, SQLITE_STATIC);
+  /// Bind encrypted date
   sqlite3_bind_text(stmt, 2, encryptedEventDateStr.c_str(), -1, SQLITE_STATIC);
+  /// Bind encrypted location
   sqlite3_bind_text(stmt, 3, encryptedEventLocationStr.c_str(), -1, SQLITE_STATIC);
+  /// Bind encrypted description
   sqlite3_bind_text(stmt, 4, encryptedEventDescriptionStr.c_str(), -1, SQLITE_STATIC);
-  step_counter++; // Parametreleri ba�lama i�lemi
+  /// Increment step counter
+  step_counter++;
 
-  // Sorguyu �al��t�r ve durumu kontrol et
+  /// Execute query and check status
   if (sqlite3_step(stmt) != SQLITE_DONE) {
+    /// Print error message
     std::cerr << "\nEtkinlik ekleme hatasi: " << sqlite3_errmsg(db) << std::endl;
   } else {
-    std::cout << "\nEtkinlik basariyla olusturuldu.\n"; // Ba�ar� mesaj�
+    /// Print success message
+    std::cout << "\nEtkinlik basariyla olusturuldu.\n";
   }
 
+  /// Securely erase event name
   secureErase(eventName);
+  /// Securely erase event date
   secureErase(eventDate);
+  /// Securely erase event location
   secureErase(eventLocation);
+  /// Securely erase event description
   secureErase(eventDescription);
+  /// Securely erase derived key
   secureErase(derivedKey);
+  /// Securely erase encrypted name
   secureErase(encryptedEventNameStr);
+  /// Securely erase encrypted date
   secureErase(encryptedEventDateStr);
+  /// Securely erase encrypted location
   secureErase(encryptedEventLocationStr);
+  /// Securely erase encrypted description
   secureErase(encryptedEventDescriptionStr);
+  /// Securely erase encrypted name (duplicate call)
   secureErase(encryptedEventNameStr);
-  step_counter++; // G�venli silme i�lemi
-  sqlite3_finalize(stmt); // Belle�i serbest b�rak
-  sqlite3_close(db); // Veritaban� ba�lant�s�n� kapat
-  step_counter++; // Bellek serbest b�rakma i�lemi
-  std::cout << "Kontrol akisi adim sayisi: " << step_counter << std::endl; // Kontrol ak��� ad�mlar�n� yazd�r
+  /// Increment step counter
+  step_counter++;
+  /// Finalize statement
+  sqlite3_finalize(stmt);
+  /// Close database connection
+  sqlite3_close(db);
+  /// Increment step counter
+  step_counter++;
+  /// Print control flow step count
+  std::cout << "Kontrol akisi adim sayisi: " << step_counter << std::endl;
 }
 
-/*
-* @brief Lists all events
-*
-* @return void
-*/
+/**
+ * @brief Lists all events.
+ *
+ * Retrieves all events from the database, decrypts them,
+ * and displays them to the user.
+ *
+ * @return void
+ */
 LOCAL_EVENT_PLANNER_API void listEvents() {
-  sqlite3* db = openEventDatabase(); // Veritaban�na ba�lan
-  step_counter++; // Veritaban� ba�lant�s�
+  /// Open event database
+  sqlite3* db = openEventDatabase();
+  /// Increment step counter
+  step_counter++;
 
-  if (!db) return; // Ba�lant� ba�ar�s�zsa ��k
+  /// Check if connection failed
+  if (!db) return;
 
-  // Etkinlikleri listelemek i�in SQL sorgusu
+  /// SQL query to list events
   std::string sql = "SELECT id, name, date, location, description FROM events;";
+  /// Statement pointer
   sqlite3_stmt* stmt;
 
+  /// Prepare statement
   if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-    // Hata durumunda mesaj g�ster ve ��k
+    /// Print error message
     std::cerr << "\nSorgu hazirlama hatasi: " << sqlite3_errmsg(db) << std::endl;
+    /// Close database
     sqlite3_close(db);
+    /// Return
     return;
   }
 
-  step_counter++; // Sorgu haz�rlama i�lemi
-  // Etkinlik listesini ekrana yazd�r
+  /// Increment step counter
+  step_counter++;
+  /// Print header
   std::cout << "\n===========================================\n";
   std::cout << "           ETKINLIK LISTESI\n";
   std::cout << "===========================================\n";
+  /// Flag to track if events exist
   bool hasEvents = false;
 
+  /// Iterate through result rows
   while (sqlite3_step(stmt) == SQLITE_ROW) {
+    /// Set flag
     hasEvents = true;
-    int id = sqlite3_column_int(stmt, 0); // Etkinlik ID'sini al
-    std::string storedEventName = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1)); // Etkinlik ad�
-    std::string storedEventDate = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2)); // Etkinlik tarihi
-    std::string storedEventLocation = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)); // Etkinlik lokasyonu
-    std::string storedEventDescription = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4)); // Etkinlik a��klamas�
-    step_counter++; // Etkinlik bilgilerini alma i�lemi
-    std::vector<int> derivedKeyVec = deriveKeyFromSBox(keyLength, seed); // Oturum anahtar�n� al
-    std::string derivedKey = vectorToString(derivedKeyVec); // Anahtar vekt�r�n� stringe d�n��t�r
+    /// Get event ID
+    int id = sqlite3_column_int(stmt, 0);
+    /// Get encrypted event name
+    std::string storedEventName = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+    /// Get encrypted event date
+    std::string storedEventDate = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
+    /// Get encrypted event location
+    std::string storedEventLocation = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3));
+    /// Get encrypted event description
+    std::string storedEventDescription = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4));
+    /// Increment step counter
+    step_counter++;
+    /// Derive encryption key
+    std::vector<int> derivedKeyVec = deriveKeyFromSBox(keyLength, seed);
+    /// Convert key to string
+    std::string derivedKey = vectorToString(derivedKeyVec);
+    /// Convert stored name to vector
     std::vector<int> storedEventNameVec = stringToVector(storedEventName);
+    /// Decrypt event name
     std::string decryptedEventName = whiteBoxAesDecrypt(storedEventNameVec, derivedKey);
+    /// Convert stored date to vector
     std::vector<int> storedEventDateVec = stringToVector(storedEventDate);
+    /// Decrypt event date
     std::string decryptedEventDate = whiteBoxAesDecrypt(storedEventDateVec, derivedKey);
+    /// Convert stored location to vector
     std::vector<int> storedEventLocationVec = stringToVector(storedEventLocation);
+    /// Decrypt event location
     std::string decryptedEventLocation = whiteBoxAesDecrypt(storedEventLocationVec, derivedKey);
+    /// Convert stored description to vector
     std::vector<int> storedEventDescriptionVec = stringToVector(storedEventDescription);
+    /// Decrypt event description
     std::string decryptedEventDescription = whiteBoxAesDecrypt(storedEventDescriptionVec, derivedKey);
-    step_counter++; // AES �ifre ��zme i�lemi
-    // Etkinlik bilgilerini yazd�r
+    /// Increment step counter
+    step_counter++;
+    /// Print separator
     std::cout << "-------------------------\n";
+    /// Print ID
     std::cout << "ID: " << id << "\n";
+    /// Print name
     std::cout << "Ad: " << decryptedEventName << "\n";
+    /// Print date
     std::cout << "Tarih: " << decryptedEventDate << "\n";
+    /// Print location
     std::cout << "Lokasyon: " << decryptedEventLocation << "\n";
+    /// Print description
     std::cout << "Aciklama: " << decryptedEventDescription << "\n";
+    /// Print separator
     std::cout << "-------------------------\n";
+    /// Securely erase key
     secureErase(derivedKey);
+    /// Securely erase stored name
     secureErase(storedEventName);
+    /// Securely erase stored date
     secureErase(storedEventDate);
+    /// Securely erase stored location
     secureErase(storedEventLocation);
+    /// Securely erase stored description
     secureErase(storedEventDescription);
+    /// Securely erase decrypted name
     secureErase(decryptedEventName);
+    /// Securely erase decrypted date
     secureErase(decryptedEventDate);
+    /// Securely erase decrypted location
     secureErase(decryptedEventLocation);
+    /// Securely erase decrypted description
     secureErase(decryptedEventDescription);
-    step_counter++; // G�venli silme i�lemi
+    /// Increment step counter
+    step_counter++;
   }
 
+  /// Check if no events found
   if (!hasEvents) {
+    /// Print no events message
     std::cout << "\nHenuz kayitli etkinlik bulunmamaktadir.\n";
   }
 
+  /// Print footer
   std::cout << "===========================================\n";
-  sqlite3_finalize(stmt); // Belle�i serbest b�rak
-  sqlite3_close(db); // Veritaban� ba�lant�s�n� kapat
-  step_counter++; // Bellek serbest b�rakma i�lemi
-  std::cout << "Kontrol akisi adim sayisi: " << step_counter << std::endl; // Kontrol ak��� ad�mlar�n� yazd�r
+  /// Finalize statement
+  sqlite3_finalize(stmt);
+  /// Close database
+  sqlite3_close(db);
+  /// Increment step counter
+  step_counter++;
+  /// Print control flow step count
+  std::cout << "Kontrol akisi adim sayisi: " << step_counter << std::endl;
 }
 
-/*
-* @brief Manages events
-*
-* @return void
-*/
+/**
+ * @brief Manages events (edit functionality).
+ *
+ * Lists all events and allows user to select one for editing.
+ * Updates the event with new encrypted values.
+ *
+ * @return void
+ */
 LOCAL_EVENT_PLANNER_API void manageEvents() {
-  sqlite3* db = openEventDatabase(); // Veritaban�na ba�lan
-  step_counter++; // Veritaban� ba�lant�s�
+  /// Open event database
+  sqlite3* db = openEventDatabase();
+  /// Increment step counter
+  step_counter++;
 
-  if (!db) return; // Ba�lant� ba�ar�s�zsa ��k
+  /// Check if connection failed
+  if (!db) return;
 
-  // Etkinlikleri listelemek i�in SQL sorgusu
+  /// SQL query to list events
   std::string sql = "SELECT id, name, date, location, description FROM events;";
+  /// Statement pointer
   sqlite3_stmt* stmt;
 
+  /// Prepare statement
   if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-    // Hata durumunda mesaj g�ster ve ��k
+    /// Print error message
     std::cerr << "\nSorgu hazirlama hatasi: " << sqlite3_errmsg(db) << std::endl;
+    /// Close database
     sqlite3_close(db);
+    /// Return
     return;
   }
 
-  step_counter++; // Sorgu haz�rlama i�lemi
-  // Etkinlik listesini ekrana yazd�r
+  /// Increment step counter
+  step_counter++;
+  /// Print header
   std::cout << "\n===========================================\n";
   std::cout << "           ETKINLIK LISTESI\n";
   std::cout << "===========================================\n";
+  /// Flag to track events
   bool hasEvents = false;
 
+  /// Iterate through result rows
   while (sqlite3_step(stmt) == SQLITE_ROW) {
+    /// Set flag
     hasEvents = true;
-    int id = sqlite3_column_int(stmt, 0); // Etkinlik ID'sini al
-    std::string storedEventName = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1)); // Etkinlik ad�
-    std::string storedEventDate = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2)); // Etkinlik tarihi
-    std::string storedEventLocation = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)); // Etkinlik lokasyonu
-    std::string storedEventDescription = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4)); // Etkinlik a��klamas�
-    step_counter++; // Etkinlik bilgilerini alma i�lemi
-    std::vector<int> derivedKeyVec = deriveKeyFromSBox(keyLength, seed); // Oturum anahtar�n� al
-    std::string derivedKey = vectorToString(derivedKeyVec); // Anahtar vekt�r�n� stringe d�n��t�r
+    /// Get event ID
+    int id = sqlite3_column_int(stmt, 0);
+    /// Get encrypted event name
+    std::string storedEventName = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+    /// Get encrypted event date
+    std::string storedEventDate = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
+    /// Get encrypted event location
+    std::string storedEventLocation = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3));
+    /// Get encrypted event description
+    std::string storedEventDescription = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4));
+    /// Increment step counter
+    step_counter++;
+    /// Derive encryption key
+    std::vector<int> derivedKeyVec = deriveKeyFromSBox(keyLength, seed);
+    /// Convert key to string
+    std::string derivedKey = vectorToString(derivedKeyVec);
+    /// Convert stored name to vector
     std::vector<int> storedEventNameVec = stringToVector(storedEventName);
+    /// Decrypt event name
     std::string decryptedEventName = whiteBoxAesDecrypt(storedEventNameVec, derivedKey);
+    /// Convert stored date to vector
     std::vector<int> storedEventDateVec = stringToVector(storedEventDate);
+    /// Decrypt event date
     std::string decryptedEventDate = whiteBoxAesDecrypt(storedEventDateVec, derivedKey);
+    /// Convert stored location to vector
     std::vector<int> storedEventLocationVec = stringToVector(storedEventLocation);
+    /// Decrypt event location
     std::string decryptedEventLocation = whiteBoxAesDecrypt(storedEventLocationVec, derivedKey);
+    /// Convert stored description to vector
     std::vector<int> storedEventDescriptionVec = stringToVector(storedEventDescription);
+    /// Decrypt event description
     std::string decryptedEventDescription = whiteBoxAesDecrypt(storedEventDescriptionVec, derivedKey);
-    step_counter++; // AES �ifre ��zme i�lemi
-    // Etkinlik bilgilerini yazd�r
+    /// Increment step counter
+    step_counter++;
+    /// Print separator
     std::cout << "-------------------------\n";
+    /// Print ID
     std::cout << "ID: " << id << "\n";
+    /// Print name
     std::cout << "Ad: " << decryptedEventName << "\n";
+    /// Print date
     std::cout << "Tarih: " << decryptedEventDate << "\n";
+    /// Print location
     std::cout << "Lokasyon: " << decryptedEventLocation << "\n";
+    /// Print description
     std::cout << "Aciklama: " << decryptedEventDescription << "\n";
+    /// Print separator
     std::cout << "-------------------------\n";
+    /// Securely erase key
     secureErase(derivedKey);
+    /// Securely erase stored name
     secureErase(storedEventName);
+    /// Securely erase stored date
     secureErase(storedEventDate);
+    /// Securely erase stored location
     secureErase(storedEventLocation);
+    /// Securely erase stored description
     secureErase(storedEventDescription);
+    /// Securely erase decrypted name
     secureErase(decryptedEventName);
+    /// Securely erase decrypted date
     secureErase(decryptedEventDate);
+    /// Securely erase decrypted location
     secureErase(decryptedEventLocation);
+    /// Securely erase decrypted description
     secureErase(decryptedEventDescription);
-    step_counter++; // G�venli silme i�lemi
+    /// Increment step counter
+    step_counter++;
   }
 
-  sqlite3_finalize(stmt); // Belle�i serbest b�rak
+  /// Finalize statement
+  sqlite3_finalize(stmt);
 
+  /// Check if no events found
   if (!hasEvents) {
+    /// Print no events message
     std::cout << "\nHenuz kayitli etkinlik bulunmamaktadir.\n";
+    /// Print footer
     std::cout << "===========================================\n";
+    /// Close database
     sqlite3_close(db);
+    /// Return
     return;
   }
 
-  // Kullan�c�dan d�zenlemek istedi�i event ID'sini al
+  /// Get event ID from user to edit
   std::cout << "\n===========================================\n";
   std::cout << "Duzenlemek istediginiz etkinligin ID'sini girin (0 = Iptal): ";
+  /// Variable for selected ID
   int selectedId;
+  /// Read selected ID
   std::cin >> selectedId;
 
+  /// Check if cancelled
   if (selectedId == 0) {
+    /// Print cancel message
     std::cout << "Islem iptal edildi.\n";
+    /// Close database
     sqlite3_close(db);
+    /// Return
     return;
   }
 
-  // Se�ilen eventi database'den getir
+  /// SQL to select event by ID
   std::string selectSql = "SELECT name, date, location, description FROM events WHERE id = ?;";
+  /// Statement pointer for select
   sqlite3_stmt* selectStmt;
 
+  /// Prepare select statement
   if (sqlite3_prepare_v2(db, selectSql.c_str(), -1, &selectStmt, nullptr) != SQLITE_OK) {
+    /// Print error message
     std::cerr << "\nSorgu hazirlama hatasi: " << sqlite3_errmsg(db) << std::endl;
+    /// Close database
     sqlite3_close(db);
+    /// Return
     return;
   }
 
+  /// Bind selected ID
   sqlite3_bind_int(selectStmt, 1, selectedId);
 
+  /// Check if event found
   if (sqlite3_step(selectStmt) != SQLITE_ROW) {
+    /// Print not found message
     std::cerr << "\nBelirtilen ID ile etkinlik bulunamadi!\n";
+    /// Finalize statement
     sqlite3_finalize(selectStmt);
+    /// Close database
     sqlite3_close(db);
+    /// Return
     return;
   }
 
-  // Mevcut bilgileri al ve �ifreyi ��z
+  /// Get current encrypted values and decrypt
   std::string storedEventName = reinterpret_cast<const char *>(sqlite3_column_text(selectStmt, 0));
+  /// Get encrypted date
   std::string storedEventDate = reinterpret_cast<const char *>(sqlite3_column_text(selectStmt, 1));
+  /// Get encrypted location
   std::string storedEventLocation = reinterpret_cast<const char *>(sqlite3_column_text(selectStmt, 2));
+  /// Get encrypted description
   std::string storedEventDescription = reinterpret_cast<const char *>(sqlite3_column_text(selectStmt, 3));
+  /// Derive encryption key
   std::vector<int> derivedKeyVec = deriveKeyFromSBox(keyLength, seed);
+  /// Convert key to string
   std::string derivedKey = vectorToString(derivedKeyVec);
+  /// Convert stored name to vector
   std::vector<int> storedEventNameVec = stringToVector(storedEventName);
+  /// Decrypt current event name
   std::string currentEventName = whiteBoxAesDecrypt(storedEventNameVec, derivedKey);
+  /// Convert stored date to vector
   std::vector<int> storedEventDateVec = stringToVector(storedEventDate);
+  /// Decrypt current event date
   std::string currentEventDate = whiteBoxAesDecrypt(storedEventDateVec, derivedKey);
+  /// Convert stored location to vector
   std::vector<int> storedEventLocationVec = stringToVector(storedEventLocation);
+  /// Decrypt current event location
   std::string currentEventLocation = whiteBoxAesDecrypt(storedEventLocationVec, derivedKey);
+  /// Convert stored description to vector
   std::vector<int> storedEventDescriptionVec = stringToVector(storedEventDescription);
+  /// Decrypt current event description
   std::string currentEventDescription = whiteBoxAesDecrypt(storedEventDescriptionVec, derivedKey);
+  /// Finalize select statement
   sqlite3_finalize(selectStmt);
-  // Yeni bilgileri al
+  /// Get new information from user
   std::cin.ignore();
+  /// Print edit header
   std::cout << "\n===========================================\n";
   std::cout << "        ETKINLIK DUZENLEME\n";
   std::cout << "===========================================\n";
+  /// Print instructions
   std::cout << "Not: Degistirmek istemediginiz alanlarda Enter'a basin\n\n";
+  /// Variables for new values
   std::string newEventName, newEventDate, newEventLocation, newEventDescription;
+  /// Print current name
   std::cout << "Mevcut Ad: " << currentEventName << "\n";
+  /// Prompt for new name
   std::cout << "Yeni Ad (bos birakilirsa mevcut kalir): ";
+  /// Read new name
   std::getline(std::cin, newEventName);
 
+  /// Keep current if empty
   if (newEventName.empty()) newEventName = currentEventName;
 
+  /// Print current date
   std::cout << "\nMevcut Tarih: " << currentEventDate << "\n";
+  /// Prompt for new date
   std::cout << "Yeni Tarih (YYYY-MM-DD) (bos birakilirsa mevcut kalir): ";
+  /// Read new date
   std::getline(std::cin, newEventDate);
 
+  /// Keep current if empty
   if (newEventDate.empty()) newEventDate = currentEventDate;
 
+  /// Print current location
   std::cout << "\nMevcut Lokasyon: " << currentEventLocation << "\n";
+  /// Prompt for new location
   std::cout << "Yeni Lokasyon (bos birakilirsa mevcut kalir): ";
+  /// Read new location
   std::getline(std::cin, newEventLocation);
 
+  /// Keep current if empty
   if (newEventLocation.empty()) newEventLocation = currentEventLocation;
 
+  /// Print current description
   std::cout << "\nMevcut Aciklama: " << currentEventDescription << "\n";
+  /// Prompt for new description
   std::cout << "Yeni Aciklama (bos birakilirsa mevcut kalir): ";
+  /// Read new description
   std::getline(std::cin, newEventDescription);
 
+  /// Keep current if empty
   if (newEventDescription.empty()) newEventDescription = currentEventDescription;
 
-  // Yeni bilgileri �ifrele
+  /// Encrypt new name
   std::vector<int> encryptedEventName = whiteBoxAesEncrypt(newEventName, derivedKey);
+  /// Convert encrypted name to string
   std::string encryptedEventNameStr = vectorToString(encryptedEventName);
+  /// Encrypt new date
   std::vector<int> encryptedEventDate = whiteBoxAesEncrypt(newEventDate, derivedKey);
+  /// Convert encrypted date to string
   std::string encryptedEventDateStr = vectorToString(encryptedEventDate);
+  /// Encrypt new location
   std::vector<int> encryptedEventLocation = whiteBoxAesEncrypt(newEventLocation, derivedKey);
+  /// Convert encrypted location to string
   std::string encryptedEventLocationStr = vectorToString(encryptedEventLocation);
+  /// Encrypt new description
   std::vector<int> encryptedEventDescription = whiteBoxAesEncrypt(newEventDescription, derivedKey);
+  /// Convert encrypted description to string
   std::string encryptedEventDescriptionStr = vectorToString(encryptedEventDescription);
-  // Database'de g�ncelleme yap
+  /// SQL update query
   std::string updateSql = "UPDATE events SET name = ?, date = ?, location = ?, description = ? WHERE id = ?;";
+  /// Statement pointer for update
   sqlite3_stmt* updateStmt;
 
+  /// Prepare update statement
   if (sqlite3_prepare_v2(db, updateSql.c_str(), -1, &updateStmt, nullptr) != SQLITE_OK) {
+    /// Print error message
     std::cerr << "\nGuncelleme sorgusu hazirlama hatasi: " << sqlite3_errmsg(db) << std::endl;
+    /// Close database
     sqlite3_close(db);
+    /// Return
     return;
   }
 
+  /// Bind encrypted name
   sqlite3_bind_text(updateStmt, 1, encryptedEventNameStr.c_str(), -1, SQLITE_STATIC);
+  /// Bind encrypted date
   sqlite3_bind_text(updateStmt, 2, encryptedEventDateStr.c_str(), -1, SQLITE_STATIC);
+  /// Bind encrypted location
   sqlite3_bind_text(updateStmt, 3, encryptedEventLocationStr.c_str(), -1, SQLITE_STATIC);
+  /// Bind encrypted description
   sqlite3_bind_text(updateStmt, 4, encryptedEventDescriptionStr.c_str(), -1, SQLITE_STATIC);
+  /// Bind selected ID
   sqlite3_bind_int(updateStmt, 5, selectedId);
 
+  /// Execute update and check status
   if (sqlite3_step(updateStmt) != SQLITE_DONE) {
+    /// Print error message
     std::cerr << "\nEtkinlik guncelleme hatasi: " << sqlite3_errmsg(db) << std::endl;
   } else {
+    /// Print success header
     std::cout << "\n===========================================\n";
+    /// Print success message
     std::cout << "Etkinlik basariyla guncellendi!\n";
+    /// Print footer
     std::cout << "===========================================\n";
   }
 
-  // G�venli silme
+  /// Securely erase key
   secureErase(derivedKey);
+  /// Securely erase current name
   secureErase(currentEventName);
+  /// Securely erase current date
   secureErase(currentEventDate);
+  /// Securely erase current location
   secureErase(currentEventLocation);
+  /// Securely erase current description
   secureErase(currentEventDescription);
+  /// Securely erase new name
   secureErase(newEventName);
+  /// Securely erase new date
   secureErase(newEventDate);
+  /// Securely erase new location
   secureErase(newEventLocation);
+  /// Securely erase new description
   secureErase(newEventDescription);
+  /// Securely erase encrypted name
   secureErase(encryptedEventNameStr);
+  /// Securely erase encrypted date
   secureErase(encryptedEventDateStr);
+  /// Securely erase encrypted location
   secureErase(encryptedEventLocationStr);
+  /// Securely erase encrypted description
   secureErase(encryptedEventDescriptionStr);
+  /// Finalize update statement
   sqlite3_finalize(updateStmt);
-  sqlite3_close(db); // Veritaban� ba�lant�s�n� kapat
-  step_counter++; // Bellek serbest b�rakma i�lemi
-  std::cout << "Kontrol akisi adim sayisi: " << step_counter << std::endl; // Kontrol ak��� ad�mlar�n� yazd�r
+  /// Close database connection
+  sqlite3_close(db);
+  /// Increment step counter
+  step_counter++;
+  /// Print control flow step count
+  std::cout << "Kontrol akisi adim sayisi: " << step_counter << std::endl;
 }

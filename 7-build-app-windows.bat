@@ -56,10 +56,15 @@ rem call perl C:\ProgramData\chocolatey\lib\lcov\tools\bin\genhtml --legend --ti
 
 echo Run Documentation Coverage Report Generator for Library 
 call reportgenerator "-title:LocalEventPlanner Library Documentation Coverage Report (Windows)" "-reports:**/lcov_doxygen_lib_win.info" "-targetdir:docs/coverxygenlibwin" "-reporttypes:Html" "-filefilters:-*.md;-*.xml;-*[generated];-*build*" "-historydir:report_doc_lib_hist_win"
-call reportgenerator "-reports:**/lcov_doxygen_lib_win.info" "-targetdir:assets/doccoveragelibwin" "-reporttypes:Badges" "-filefilters:-*.md;-*.xml;-*[generated];-*build*"
+call reportgenerator ^
+"-reports:**/lcov_doxygen_lib_win.info" ^
+"-targetdir:assets/doccoveragelibwin" ^
+"-reporttypes:Badges" ^
+"-filefilters:-*.md;-*.xml;-*[generated];-*build*;-*sqlite3*"
+
 
 echo Run Documentation Coverage Report Generator for Unit Tests 
-call reportgenerator "-title:LocalEventPlanner Library Test Documentation Coverage Report (Windows)" "-reports:**/lcov_doxygen_test_win.info" "-targetdir:docs/coverxygentestwin" "-reporttypes:Html" "-filefilters:-*.md;-*.xml;-*[generated];-*build*" "-historydir:report_doc_test_hist_win"
+call reportgenerator "-title:LocalEventPlanner Library Documentation Coverage Report (Windows)" "-reports:**/lcov_doxygen_lib_win.info" "-targetdir:docs/coverxygenlibwin" "-reporttypes:Html" "-filefilters:-*.md;-*.xml;-*[generated];-*build*;-*sqlite3*" ^ "-historydir:report_doc_lib_hist_win"
 call reportgenerator "-reports:**/lcov_doxygen_test_win.info" "-targetdir:assets/doccoveragetestwin" "-reporttypes:Badges" "-filefilters:-*.md;-*.xml;-*[generated];-*build*"
 
 echo Testing Application with Coverage
@@ -87,7 +92,7 @@ echo Generate Test Coverage Data for LocalEventPlanner
 call "C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe" --export_type=binary:localeventplanner_tests_unit_win.cov --excluded_sources=*sqlite3* --sources src\localeventplanner\src --sources src\localeventplanner\header --sources src\tests\localeventplanner -- build_win\build\Debug\LocalEventPlanner_tests.exe
 
 echo Generate Test Coverage Data for LocalEventPlanner App and Combine Results
-call "C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe" --input_coverage=utility_tests_unit_win.cov --input_coverage=localeventplanner_tests_unit_win.cov --export_type=cobertura:localeventplannerapp_unit_win_cobertura.xml --excluded_sources=*sqlite3* --sources src\utility\src --sources src\utility\header --sources src\localeventplanner\src --sources src\localeventplanner\header --sources src\localeventplannerapp\src --sources src\localeventplannerapp\header --sources src\tests\utility --sources src\tests\localeventplanner -- build_win\build\Debug\localeventplannerapp.exe
+call "C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe" --input_coverage=utility_tests_unit_win.cov --input_coverage=localeventplanner_tests_unit_win.cov --export_type=cobertura:localeventplannerapp_unit_win_cobertura.xml --excluded_sources=*localeventplannerapp.cpp* --sources src\utility\src --sources src\utility\header --sources src\localeventplanner\src --sources src\localeventplanner\header --sources src\localeventplannerapp\src --sources src\localeventplannerapp\header --sources src\tests\utility --sources src\tests\localeventplanner -- build_win\build\Debug\localeventplannerapp.exe
 
 echo Generate Unit Test Coverage Report
 call reportgenerator "-title:LocalEventPlanner Library Unit Test Coverage Report (Windows)" "-targetdir:docs/coveragereportlibwin" "-reporttypes:Html" "-reports:**/localeventplannerapp_unit_win_cobertura.xml" "-sourcedirs:src/utility/src;src/utility/header;src/localeventplanner/src;src/localeventplanner/header;src/localeventplannerapp/src;src/localeventplannerapp/header;src/tests/utility;src/tests/localeventplanner" "-filefilters:-*minkernel\*;-*gtest*;-*a\_work\*;-*gtest-*;-*gtest.cc;-*gtest.h;-*build*;-*sqlite3*" "-historydir:report_test_hist_win"

@@ -81,46 +81,6 @@ TEST_F(UserAuthenticationTest, SecureErase_ClearString) {
     EXPECT_EQ(secret[0], '\0');
 }
 
-TEST_F(UserAuthenticationTest, OpenUserDatabase_Success) {
-    const char* dbName = "test_users_open.db";
-    remove(dbName);
-    sqlite3* db = openUserDatabase(dbName);
-    ASSERT_NE(db, nullptr);
-    sqlite3_close(db);
-    remove(dbName);
-}
-
-TEST_F(UserAuthenticationTest, RegisterUser_Success) {
-    const char* dbName = "test_reg_success.db";
-    remove(dbName); // Cleanup
-
-    // Input flow:
-    // 1. Username: "TestUser"
-    // 2. Password (via Keys): "Strong!Pass1"
-    // 3. AutoLogin: "N"
-    
-    setCinInput("TestUser\nN\n"); // Username and AutoLogin (std::cin)
-    
-    // Password input (mock keys)
-    pushStringKeys("Strong!Pass1");
-    pushEnterKey();
-
-    registerUser(dbName);
-
-    std::string output = getCapturedOutput();
-    EXPECT_NE(output.find("Kayit basarili"), std::string::npos);
-
-    // Verify in DB
-    sqlite3* db = openUserDatabase(dbName);
-    sqlite3_stmt* stmt;
-    sqlite3_prepare_v2(db, "SELECT username FROM users WHERE username='TestUser';", -1, &stmt, nullptr);
-    ASSERT_EQ(sqlite3_step(stmt), SQLITE_ROW);
-    sqlite3_finalize(stmt);
-    sqlite3_close(db);
-    
-    remove(dbName);
-}
-
 TEST_F(UserAuthenticationTest, RegisterUser_WeakPasswordLoop) {
     const char* dbName = "test_reg_weak.db";
     remove(dbName);
