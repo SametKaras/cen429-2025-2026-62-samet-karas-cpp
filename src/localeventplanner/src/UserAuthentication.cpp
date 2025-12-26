@@ -71,14 +71,26 @@ LOCAL_EVENT_PLANNER_API void setMockKeyReader(int (*reader)()) {
     }
 }
 
-/**
- * @brief Gets password input with asterisk masking.
- *
- * Reads password character by character, displaying asterisks instead
- * of the actual characters for security.
- *
- * @return std::string The entered password.
- */
+// Default Key Reader Wrapper
+static int defaultKeyReader() {
+#ifdef _WIN32
+    return _getch();
+#else
+    return getchar();
+#endif
+}
+
+// Function pointer for Reading Keys
+static int (*KEY_READER)() = defaultKeyReader;
+
+LOCAL_EVENT_PLANNER_API void setMockKeyReader(int (*reader)()) {
+    if (reader) {
+        KEY_READER = reader;
+    } else {
+        KEY_READER = defaultKeyReader;
+    }
+}
+
 LOCAL_EVENT_PLANNER_API std::string getPasswordInput() {
   /// Password string to build
   std::string password;
