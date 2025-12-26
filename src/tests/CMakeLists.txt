@@ -52,7 +52,7 @@ endif()
 
 # LocalEventPlanner tests
 if(ENABLE_LocalEventPlanner)
-    add_subdirectory(LocalEventPlanner)
+    add_subdirectory(localeventplanner)
     # SQLite kaynak dosyasını derleme için ekle
     target_sources(LocalEventPlanner_tests PRIVATE ${SQLITE_SRC_DIR}/sqlite3.c)
 

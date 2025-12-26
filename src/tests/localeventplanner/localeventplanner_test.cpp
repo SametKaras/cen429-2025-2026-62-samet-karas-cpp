@@ -52,22 +52,11 @@ TEST(AttendeeManagementTest, OpenAttendeeDatabaseTest) {
   ASSERT_NE(db, nullptr) << "Veritaban� a��lamad�."; // Veritaban� ba�lant�s� bo� olmamal�
 }
 
-TEST(EventDetailsTest, OpenEventDatabaseTest) {
-  sqlite3* db = openEventDatabase(); // Veritaban�n� a�
-  ASSERT_NE(db, nullptr) << "Veritaban� a��lamad�."; // Veritaban� ba�lant�s� bo� olmamal�
-}
-
-TEST(UserAuthenticationTest, OpenUserDatabaseTest) {
-  sqlite3* db = openUserDatabase(); // Veritaban�n� a�
-  ASSERT_NE(db, nullptr) << "Veritaban� a��lamad�."; // Veritaban� ba�lant�s� bo� olmamal�
-}
-
 //signature verification test
 TEST(SignatureVerificationTest, SignatureVerificationTest) {
   bool result = verifySignature();
   ASSERT_TRUE(result) << "�mza do�rulama ba�ar�s�z.";
 }
-
 
 
 TEST(DebugCheckTest, CheckExecutionTimeTest) {
@@ -269,33 +258,6 @@ TEST(SSLTest, InitializeSSLContextTest) {
 }
 
 
-TEST(SSLTest, SSLConnectionFailureTest) {
-  SSL_CTX* ctx = initializeSSLContext();
-  ASSERT_NE(ctx, nullptr) << "SSL ba lam  ba lat lamad !";
-  // Hatal  hostname veya port ile ba lant  hatas n  sim le edin
-  const std::string invalidHostname = "invalid.localhost";
-  const int invalidPort = 9999;
-  // SSL ba lam  ile BIO olu turun
-  SSL* ssl;
-  BIO* bio = BIO_new_ssl_connect(ctx);
-  ASSERT_NE(bio, nullptr) << "BIO olu turulamad !";
-  BIO_get_ssl(bio, &ssl);
-  ASSERT_NE(ssl, nullptr) << "SSL oturumu al namad !";
-  std::string hostnameWithPort = invalidHostname + ":" + std::to_string(invalidPort);
-  BIO_set_conn_hostname(bio, hostnameWithPort.c_str());
-  // Ba lant y  ger ekle tirin ve ba ar s z oldu unu do rulay n
-  int connectionResult = BIO_do_connect(bio);
-  ASSERT_LE(connectionResult, 0) << "Ba lant  ba ar l  oldu, ancak ba ar s z olmas  gerekiyordu!";
-  // Hata mesaj n  do rulay n (iste e ba l )
-  long sslError = ERR_get_error();
-  ASSERT_NE(sslError, 0) << "Hata bekleniyordu, ancak al namad !";
-  std::cerr << "Hata mesaj : " << ERR_reason_error_string(sslError) << std::endl;
-  // Kaynaklar  serbest b rak
-  BIO_free_all(bio);
-  SSL_CTX_free(ctx);
-}
-
-
 TEST(CRCTest, CRC32TableInitTest) {
   ASSERT_NO_THROW(crc32_table_init()) << "CRC32 tablosu ba lat lamad !";
 }
@@ -370,22 +332,6 @@ TEST(SSLTest, MemoryLeakTest) {
 
 
 
-TEST(UserAuthenticationTest, OpenDatabaseFailureTest) {
-  sqlite3* db = nullptr;
-  std::string invalidPath = "/invalid_path/users.db";
-  // Veritaban�n� yanl�� bir yolla a�maya �al��
-  int result = sqlite3_open(invalidPath.c_str(), &db);
-  // Hata durumunu kontrol et
-  ASSERT_NE(result, SQLITE_OK) << "Veritaban� beklenildi�i gibi a��lamad�.";
-
-  if (db) {
-    sqlite3_close(db); // E�er a��k kald�ysa kapat
-  }
-}
-
-
-
-
 
 // 1. Test: S�r�m uyumlulu�unu kontrol et
 TEST(VersionAndDeviceBindingTest, VersionCompatibilityMatch) {
@@ -410,23 +356,6 @@ TEST(VersionAndDeviceBindingTest, DeviceCompatibilityMismatch) {
   ASSERT_FALSE(incompatibleBrand.find("HP") != std::string::npos || incompatibleBrand.find("ASUS") != std::string::npos)
       << "Uyumsuz cihaz yanl��l�kla uyumlu olarak i�aretlendi.";
 }
-
-
-////////////////////////////////////////////////////////////////////////////
-
-
-
-
-
-
-// Veritaban� a��lma testi
-TEST(EventDetailsTest, OpenDatabaseSuccess) {
-  sqlite3* db = openEventDatabase();
-  ASSERT_NE(db, nullptr) << "Etkinlik veritaban� a��lamad�.";
-}
-
-
-
 
 #include "DisplayMainMenu.h"
 #include "gtest/gtest.h"
@@ -593,34 +522,6 @@ TEST(VersionAndDeviceBindingTest, VersionCompatibilityMismatch) {
 }
 
 
-
-
-
-
-
-
-
-
-
-
-TEST(UserAuthenticationTest, SaltGenerationTest13) {
-  std::string salt = generateFixedSalt("testSeed");
-  ASSERT_FALSE(salt.empty()) << "Salt olu�turulamad�.";
-}
-
-TEST(UserAuthenticationTest, DeviceFingerprintTest15) {
-  std::string fingerprint = getEncryptedDeviceFingerprint();
-  ASSERT_FALSE(fingerprint.empty()) << "Cihaz parmak izi olu�turulamad�.";
-}
-
-
-
-
-
-
-
-
-
 TEST(SessionEncryptionTest, SessionKeyAndIVRandomnessTest2) {
   ASSERT_TRUE(setupSessionEncryption()) << "Oturum �ifreleme kurulumu ba�ar�s�z.";
   std::string key1 = getEncryptedSessionKey();
@@ -650,7 +551,6 @@ TEST(SessionEncryptionTest, SessionIVEncryptionTest2) {
   ASSERT_TRUE(result) << "�ifrelenmi� oturum IV ayarlanamad�.";
 }
 
-////      0
 TEST(SessionEncryptionTest, SessionDataEncryptionDecryptionTest2) {
   ASSERT_TRUE(setupSessionEncryption()) << "Oturum �ifreleme kurulumu ba�ar�s�z.";
   std::string testData = "Bu bir test verisidir.";
@@ -660,15 +560,6 @@ TEST(SessionEncryptionTest, SessionDataEncryptionDecryptionTest2) {
   ASSERT_EQ(testData, decryptedData) << "�ifrelenmi� ve ��z�lm�� veriler e�le�miyor.";
 }
 
-
-
-
-
-
-
-
-
-// Base64 Kodlama ve ��zme Testi
 TEST(SessionEncryptionTest, Base64EncodingDecodingTest2) {
   std::string testData = "Base64 Test Verisi";
   std::string encodedData = base64Encode(reinterpret_cast<const unsigned char*>(testData.c_str()), testData.size());

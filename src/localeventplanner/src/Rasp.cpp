@@ -1,586 +1,495 @@
-#include <iostream>
-#include <string>
-#include <vector>
-#include <fstream>
-#include "Rasp.h"
-#include <sys/stat.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-#include "UserAuthentication.h"
-#include "SessionEncryption.h"
-#include "DynamicAssetProtection.h"
-#include "VersionAndDeviceBinding.h"
-#include "DebugCheck.h"
-#include "SignatureVerification.h"
-#include <cstdio>
 
+/**
+ * @file Rasp.cpp
+ * @brief Cihaz/emülatör tespiti, hook tespiti, CRC bütünlük kontrolü ve TLS istemci başlatma örnekleri.
+ *
+ * Bu dosya; emülatör kontrolü, Windows API hook tespiti, CRC32 ile kod bloğu bütünlük doğrulaması
+ * ve OpenSSL üzerinden TLS istemci bağlamı kurulumu örneklerini içerir.
+ */
+
+#include <iostream>     ///< Standart giriş/çıkış akışları (std::cout, std::cerr).
+#include <string>       ///< std::string veri tipi.
+#include <vector>       ///< std::vector konteyneri.
+#include <fstream>      ///< Dosya okuma/yazma (std::ifstream).
+#include "Rasp.h"       ///< CRC_BLOCK_* makroları gibi proje-özel başlık (varsayılan).
+#include <sys/stat.h>   ///< Dosya izinleri/stat yapılarına erişim.
+#include <openssl/ssl.h>///< OpenSSL SSL/TLS API.
+#include <openssl/err.h>///< OpenSSL hata okuma (ERR_get_error vb.).
+#include "UserAuthentication.h"        ///< Kullanıcı kimlik doğrulama modülü (proje-özel).
+#include "SessionEncryption.h"         ///< Oturum şifreleme modülü (proje-özel).
+#include "DynamicAssetProtection.h"    ///< Dinamik varlık koruma modülü (proje-özel).
+#include "VersionAndDeviceBinding.h"   ///< Sürüm-cihaz bağlama modülü (proje-özel).
+#include "DebugCheck.h"                ///< Debug/anti-debug kontrol modülü (proje-özel).
+#include "SignatureVerification.h"     ///< İmza doğrulama modülü (proje-özel).
+#include <cstdio>       ///< C stdio (printf, FILE vb.) — bu dosyada sınırlı kullanılır.
 
 #ifdef _WIN32
   #ifndef S_IWUSR
-    #define S_IWUSR S_IWRITE
+    #define S_IWUSR S_IWRITE ///< Windows'ta eksik olabilecek S_IWUSR tanımını S_IWRITE ile eşler.
   #endif
 #endif
 
-
-// Em�lat�rlerde yayg�n olarak g�r�len �reticiler ve modeller
+/**
+ * @brief Emülatörlerde sık görülen üretici isimleri.
+ *
+ * Cihaz üreticisi bu listede geçiyorsa emülatör olma olasılığı artar.
+ */
 const std::vector<std::string> EMULATOR_MANUFACTURERS = {
-  "Genymotion", "BlueStacks", "Google", "Android Emulator", "VirtualBox"
+  "Genymotion", "BlueStacks", "Google", "Android Emulator", "VirtualBox" ///< Bilinen emülatör üreticileri.
 };
 
+/**
+ * @brief Emülatörlerde sık görülen model isimleri.
+ *
+ * Cihaz modeli bu listede geçiyorsa emülatör olma olasılığı artar.
+ */
 const std::vector<std::string> EMULATOR_MODELS = {
-  "Emulator", "sdk", "google_sdk", "vbox", "VirtualBox"
+  "Emulator", "sdk", "google_sdk", "vbox", "VirtualBox" ///< Bilinen emülatör model anahtarları.
 };
 
-/*
-* @brief Gets the manufacturer information of the device
-*
-* Gets the manufacturer information of the device
-*
-* @return std::string
-*/
-
-
-// �retici bilgisi alma (Sisteme �zg� y�ntem kullan�lmal�)
+/**
+ * @brief Cihaz üreticisini döndürür.
+ *
+ * Android/Linux benzeri ortamlarda `/system/build.prop` içinden `ro.product.manufacturer` değerini okur.
+ *
+ * @return Üretici bilgisi; bulunamazsa `"Unknown"`.
+ */
 std::string getDeviceManufacturer() {
-  // �rnek: Sistem komutuyla �retici bilgisi al�nabilir (Linux/Android)
-  std::ifstream file("/system/build.prop");
-  std::string line;
+  std::ifstream file("/system/build.prop"); ///< Android sistem özelliklerinin tipik konumu (her cihazda garanti değil).
+  std::string line;                         ///< Dosyadan okunacak satır geçici değişkeni.
 
-  while (std::getline(file, line)) {
-    if (line.find("ro.product.manufacturer") != std::string::npos) {
-      return line.substr(line.find("=") + 1);
+  while (std::getline(file, line)) {        ///< Dosya satır satır okunur.
+    if (line.find("ro.product.manufacturer") != std::string::npos) { ///< Üretici anahtarı yakalanır.
+      return line.substr(line.find("=") + 1); ///< '=' sonrası değer ilgili property değeridir.
     }
   }
 
-  return "Unknown";
+  return "Unknown"; ///< Anahtar bulunamazsa varsayılan.
 }
 
-/*
-* @brief Gets the model information of the device
-*
-* Gets the model information of the device
-*
-* @return std::string
-*
-*/
-// Model bilgisi alma
+/**
+ * @brief Cihaz modelini döndürür.
+ *
+ * Android/Linux benzeri ortamlarda `/system/build.prop` içinden `ro.product.model` değerini okur.
+ *
+ * @return Model bilgisi; bulunamazsa `"Unknown"`.
+ */
 std::string getDeviceModel() {
-  // �rnek: Sistem komutuyla model bilgisi al�nabilir (Linux/Android)
-  std::ifstream file("/system/build.prop");
-  std::string line;
+  std::ifstream file("/system/build.prop"); ///< Sistem özellik dosyası.
+  std::string line;                         ///< Satır buffer'ı.
 
-  while (std::getline(file, line)) {
-    if (line.find("ro.product.model") != std::string::npos) {
-      return line.substr(line.find("=") + 1);
+  while (std::getline(file, line)) {        ///< Dosya satır satır okunur.
+    if (line.find("ro.product.model") != std::string::npos) { ///< Model anahtarı yakalanır.
+      return line.substr(line.find("=") + 1); ///< '=' sonrası değer döndürülür.
     }
   }
 
-  return "Unknown";
+  return "Unknown"; ///< Bulunamadıysa varsayılan.
 }
 
-/*
-* @brief Detects if the application is running on an emulator
-*
-* Detects if the application is running on an emulator
-*
-* @return bool
-*/
-
-// Em�lat�r tespit fonksiyonu
+/**
+ * @brief Uygulamanın emülatörde çalışıp çalışmadığını tespit eder.
+ *
+ * Üretici ve model string'leri, bilinen emülatör üretici/model anahtarlarıyla karşılaştırılır.
+ *
+ * @return Emülatör tespit edilirse true; aksi halde false.
+ */
 bool isEmulator() {
-  std::string manufacturer = getDeviceManufacturer();
-  std::string model = getDeviceModel();
+  std::string manufacturer = getDeviceManufacturer(); ///< Üretici bilgisi okunur.
+  std::string model = getDeviceModel();               ///< Model bilgisi okunur.
 
-  for (const auto& emulatorManufacturer : EMULATOR_MANUFACTURERS) {
-    if (manufacturer.find(emulatorManufacturer) != std::string::npos) {
-      return true;
+  for (const auto& emulatorManufacturer : EMULATOR_MANUFACTURERS) { ///< Üretici listesi taranır.
+    if (manufacturer.find(emulatorManufacturer) != std::string::npos) { ///< Eşleşme varsa emülatör kabul edilir.
+      return true; ///< Emülatör üretici eşleşmesi.
     }
   }
 
-  for (const auto& emulatorModel : EMULATOR_MODELS) {
-    if (model.find(emulatorModel) != std::string::npos) {
-      return true;
+  for (const auto& emulatorModel : EMULATOR_MODELS) { ///< Model listesi taranır.
+    if (model.find(emulatorModel) != std::string::npos) { ///< Eşleşme varsa emülatör kabul edilir.
+      return true; ///< Emülatör model eşleşmesi.
     }
   }
 
-  return false;
+  return false; ///< Hiçbir eşleşme yok.
 }
 
-///*
-//* @brief Checks if the file is writable
-//*
-//* Checks if the file is writable
-//*
-//* @param const std::string& filePath - The path of the file
-//*
-//* @return bool
-//*/
-//
-//bool isFileWritable(const std::string& filePath) {
-//  struct stat fileStat;
-//
-//  if (stat(filePath.c_str(), &fileStat) == 0) {
-//    return (fileStat.st_mode & S_IWUSR);
-//  }
-//
-//  return false;
-//}
-//
-///*
-//*
-//* @brief Checks critical system files for security
-//*
-//* Checks critical system files for security
-//*
-//* @return bool
-//*/
-//
-//
-//// Kritik dosyalar�n g�venli�ini kontrol eden fonksiyon
-//bool checkCriticalSystemFiles() {
-//#ifdef _WIN32
-//  // Kontrol edilecek kritik dosya yollar� (Windows ortam� i�in)
-//  std::vector<std::string> criticalFiles = {
-//    "C:\\Windows\\System32\\config\\SECURITY",
-//    "C:\\Windows\\System32\\config\\SAM"
-//  };
-//
-//  for (const auto& filePath : criticalFiles) {
-//    if (isFileWritable(filePath)) {
-//      std::cerr << filePath << " dosyas� yaz�labilir! Guvenlik tehdidi mevcut.\n";
-//      return false; // Kritik dosyalardan biri yaz�labilir durumda
-//    }
-//  }
-//
-//  //Tum kritik dosyalar guvenli durumda.
-//  return true; // T�m kritik dosyalar g�venli
-//#else
-//  return true; // di�er sistemlerde kontrol yap�lm�yor, do�ru kabul edilir
-//#endif
-//}
+#ifdef _WIN32
+#include <windows.h> ///< Windows API fonksiyonları (GetModuleHandleA, VirtualQuery vb.).
+#include <iostream>  ///< Ek i/o.
+#include <vector>    ///< Ek konteyner.
 
-////////////////////////////////////
-#ifdef _WIN32 // Sadece Windows platformunda derlenecek
-#include <windows.h>
-#include <iostream>
-#include <vector>
-
-/*
-* @brief Checks if the function is hooked
-*
-* Checks if the function is hooked
-*
-* @param const char* moduleName - The name of the module
-*
-* @param const char* functionName - The name of the function
-*
-* @return bool
-*/
-
-// HOOK sald�r�lar�n� tespit etmek i�in kullan�lan fonksiyon
+/**
+ * @brief Belirtilen modül içindeki fonksiyonun hook edilip edilmediğini kaba şekilde kontrol eder.
+ *
+ * Mantık: GetProcAddress ile fonksiyon adresi alınır; VirtualQuery ile bu adresin bellek bölgesi incelenir.
+ * Eğer bölge tipi `MEM_IMAGE` değilse (yani bir image mapping değilse), adres başka bir alana yönlendirilmiş olabilir.
+ *
+ * @param moduleName DLL modül adı (örn. "kernel32.dll").
+ * @param functionName Fonksiyon adı (örn. "CreateFileA").
+ * @return Hook şüphesi varsa true; aksi halde false.
+ */
 bool isFunctionHooked(const char* moduleName, const char* functionName) {
-  HMODULE moduleHandle = GetModuleHandleA(moduleName); // DLL mod�l�ne eri�im
+  HMODULE moduleHandle = GetModuleHandleA(moduleName); ///< Modül handle alınır (yüklü değilse null).
+  if (!moduleHandle) return false;                     ///< Modül yoksa hook kontrolü yapılamaz.
 
-  if (!moduleHandle) return false;
+  void *originalAddress = GetProcAddress(moduleHandle, functionName); ///< Fonksiyon adresi çözülür.
+  if (!originalAddress) return false;                                 ///< Fonksiyon bulunamazsa kontrol yok.
 
-  void *originalAddress = GetProcAddress(moduleHandle, functionName); // DLL i�indeki fonksiyon adresi
+  MEMORY_BASIC_INFORMATION mbi; ///< Bellek bölgesi bilgisi.
+  VirtualQuery(originalAddress, &mbi, sizeof(mbi)); ///< Adresin bellek bölgesi özellikleri okunur.
 
-  if (!originalAddress) return false;
-
-  MEMORY_BASIC_INFORMATION mbi; // Bellek bilgileri
-  VirtualQuery(originalAddress, &mbi, sizeof(mbi)); // Bellek b�lgesi bilgilerini al
-  // E�er bellek b�lgesi DLL taraf�ndan de�ilse, bu bir HOOK olabilir
-  return mbi.Type != MEM_IMAGE; // Bellek b�lgesi tipi kontrol�
+  return mbi.Type != MEM_IMAGE; ///< Image değilse olası hook / trampoline / patch yönlendirmesi.
 }
 
-/*
-* @brief Checks if the API functions are hooked
-*
-* Checks if the API functions are hooked
-*
-* @return bool
-*/
-
-// Birden fazla API'yi kontrol eden fonksiyon
+/**
+ * @brief Bir dizi kritik API fonksiyonunda hook kontrolü yapar.
+ *
+ * @return Hook tespit edilirse true; hiçbiri tespit edilmezse false.
+ */
 bool checkHooks() {
-  // Kontrol edilecek mod�l ve fonksiyon �iftleri
-  std::vector<std::pair<std::string, std::string>> apiList = {
-    {"kernel32.dll", "CreateFileA"},
-    {"kernel32.dll", "ReadFile"},
-    {"kernel32.dll", "WriteFile"},
-    {"user32.dll", "MessageBoxA"},
-    {"advapi32.dll", "RegOpenKeyExA"}
+  std::vector<std::pair<std::string, std::string>> apiList = { ///< İzlenecek modül-fonksiyon çiftleri.
+    {"kernel32.dll", "CreateFileA"},   ///< Dosya erişimi.
+    {"kernel32.dll", "ReadFile"},      ///< Dosya okuma.
+    {"kernel32.dll", "WriteFile"},     ///< Dosya yazma.
+    {"user32.dll", "MessageBoxA"},     ///< UI mesaj kutusu.
+    {"advapi32.dll", "RegOpenKeyExA"}  ///< Registry erişimi.
   };
 
-  for (const auto& api : apiList) {
-    const char *moduleName = api.first.c_str();
-    const char *functionName = api.second.c_str();
+  for (const auto& api : apiList) {                    ///< Liste gezilir.
+    const char *moduleName = api.first.c_str();        ///< Modül adı.
+    const char *functionName = api.second.c_str();     ///< Fonksiyon adı.
 
-    if (isFunctionHooked(moduleName, functionName)) {
-      //std::cerr << "HOOK sald�r�s� tespit edildi xcfdc: " << moduleName << " -> " << functionName << "\n";
-      return true; // Bir HOOK sald�r�s� tespit edilirse
+    if (isFunctionHooked(moduleName, functionName)) {  ///< Hook şüphesi kontrolü.
+      return true;                                     ///< Herhangi bir hook şüphesinde true döner.
     }
   }
 
-  return false; // Hi�bir HOOK sald�r�s� tespit edilmedi
+  return false; ///< Hiçbir hook şüphesi yok.
 }
-
 
 #else
-// Windows d���ndaki platformlarda �al��an alternatif bir kod
-#include <iostream>
-int main() {
-  std::cerr << "Bu program sadece Windows platformunda �al��abilir.\n";
-  return 1;
-}
+// Windows dışı platformlarda çalışacak alternatif (mevcut tasarım Windows'a özel).
+#include <iostream> ///< Hata mesajı basmak için.
 
+/// @brief Windows dışı platformlarda çalıştırıldığında bilgi mesajı verip çıkar.
+int main() {
+  std::cerr << "Bu program sadece Windows platformunda calisabilir.\n"; ///< Platform uyarısı.
+  return 1; ///< Hata kodu ile çıkış.
+}
 #endif
 
-#define _CRT_SECURE_NO_WARNINGS
-#define WIN32_LEAN_AND_MEAN
-#define CRC_POLY      0xEDB88320L
-#define CRC_TABLE_LEN 256
+#define _CRT_SECURE_NO_WARNINGS ///< MSVC'de güvenli olmayan fonksiyon uyarılarını bastırır.
+#define WIN32_LEAN_AND_MEAN     ///< Windows başlıklarının daha minimal dahil edilmesini sağlar.
+#define CRC_POLY      0xEDB88320L ///< CRC32 için kullanılan ters polinom.
+#define CRC_TABLE_LEN 256         ///< CRC tablosu uzunluğu.
 
-static unsigned long crc32_table[CRC_TABLE_LEN] = { 0 };
+static unsigned long crc32_table[CRC_TABLE_LEN] = { 0 }; ///< CRC32 lookup tablosu (başlatma sonrası dolacak).
 
-/*
-* @brief Initializes the CRC32 table
-*
-* Initializes the CRC32 table
-*
-* @return void
-*/
-
-// CRC32 tablosunu olu�turma
+/**
+ * @brief CRC32 lookup tablosunu başlatır.
+ *
+ * Tablo, her byte için CRC dönüşümünü önceden hesaplayarak hızlı CRC hesaplamaya imkan verir.
+ */
 void crc32_table_init() {
-  unsigned long crc;
+  unsigned long crc; ///< Geçici CRC akümülatörü.
 
-  for (int i = 0; i < CRC_TABLE_LEN; ++i) {
-    crc = i;
+  for (int i = 0; i < CRC_TABLE_LEN; ++i) { ///< 0..255 tüm byte değerleri için.
+    crc = i; ///< Başlangıç değeri olarak indeks kullanılır.
 
-    for (int j = 8; j > 0; --j) {
-      if (crc & 1) {
-        crc = (crc >> 1) ^ CRC_POLY;
+    for (int j = 8; j > 0; --j) { ///< Her byte için 8 bit işlenir.
+      if (crc & 1) {              ///< LSB 1 ise polinom XOR uygulanır.
+        crc = (crc >> 1) ^ CRC_POLY; ///< Shift + polinom.
       } else {
-        crc >>= 1;
+        crc >>= 1; ///< Sadece shift.
       }
     }
 
-    crc32_table[i] = crc;
+    crc32_table[i] = crc; ///< Sonuç tabloya yazılır.
   }
 }
 
-/*
-* @brief Calculates the CRC32 checksum
-*
-* Calculates the CRC32 checksum
-*
-* @param unsigned char* buf - The buffer to calculate the checksum
-*
-* @param int buf_len - The length of the buffer
-*
-* @return unsigned long
-*/
-
-// CRC32 hesaplama fonksiyonu
+/**
+ * @brief Verilen buffer için CRC32 checksum hesaplar.
+ *
+ * @param buf CRC hesaplanacak veri başlangıcı.
+ * @param buf_len Veri uzunluğu (byte).
+ * @return CRC32 sonucu.
+ */
 unsigned long crc32_calc(unsigned char* buf, int buf_len) {
-  unsigned long crc = 0xFFFFFFFF;
+  unsigned long crc = 0xFFFFFFFF; ///< CRC başlangıç değeri.
 
-  for (int x = 0; x < buf_len; ++x) {
-    crc = (crc >> 8) ^ crc32_table[(crc ^ buf[x]) & 0xFF];
+  for (int x = 0; x < buf_len; ++x) { ///< Tüm byte'lar üzerinde iterasyon.
+    crc = (crc >> 8) ^ crc32_table[(crc ^ buf[x]) & 0xFF]; ///< Lookup tablosu ile güncelleme.
   }
 
-  return crc ^ 0xFFFFFFFF;
+  return crc ^ 0xFFFFFFFF; ///< Final XOR.
 }
 
+/**
+ * @def CRC_START_BLOCK
+ * @brief CRC ile bütünlüğü kontrol edilecek kod bloğu başlangıcı (proje-özel makro).
+ *
+ * Not: Bu makrolar "Rasp.h" içinde tanımlı varsayılmaktadır.
+ */
 
+/**
+ * @brief Örnek fonksiyon (CRC bloğu içinde).
+ *
+ * Bu fonksiyonun derlenmiş kodu CRC kontrolüne dahil edilir.
+ */
 CRC_START_BLOCK(exampleBlock)
 void exampleFunction() {
-  std::cout << "Example function asdasdrunning...\n";
+  std::cout << "Example function asdasdrunning...\n"; ///< Örnek çıktı.
 }
-
 CRC_END_BLOCK(exampleBlock)
 
-
-
-/*
-* @brief Verifies the code block
-*
-* Verifies the code block
-*
-* @return bool
-*/
-
-// Kod blo�unu kontrol eden fonksiyon
+/**
+ * @brief CRC bloğunun bütünlüğünü doğrular.
+ *
+ * Hesaplanan CRC ile beklenen CRC karşılaştırılır.
+ *
+ * @return CRC eşleşirse true; aksi halde false.
+ */
 bool verifyCodeBlock() {
-  unsigned long computedCRC = crc32_calc(CRC_BLOCK_ADDR(exampleBlock), CRC_BLOCK_LEN(exampleBlock));
-  const unsigned long expectedCRC = 0x267ecd13; // Test s�ras�nda al�nacak ger�ek CRC de�eri
-  std::cout << "Computed CRC: " << std::hex << computedCRC << std::endl;  //Checksum hesaplanan de�eri g�sterir
-  std::cout << "Expected CRC: " << std::hex << expectedCRC << std::endl; //Checksum beklenen de�eri g�sterir
-  return computedCRC == expectedCRC;
+  unsigned long computedCRC = crc32_calc(CRC_BLOCK_ADDR(exampleBlock), CRC_BLOCK_LEN(exampleBlock)); ///< CRC hesapla.
+  const unsigned long expectedCRC = 0x267ecd13; ///< Test/derleme zamanında elde edilmiş beklenen CRC (placeholder).
+  std::cout << "Computed CRC: " << std::hex << computedCRC << std::endl; ///< Hesaplanan CRC yazdır.
+  std::cout << "Expected CRC: " << std::hex << expectedCRC << std::endl; ///< Beklenen CRC yazdır.
+  return computedCRC == expectedCRC; ///< Karşılaştırma sonucu döndür.
 }
 
-#define STRINGIFY(x) #x
-#define TOSTRING(x) STRINGIFY(x)
+#define STRINGIFY(x) #x   ///< Makroyu string literal'e çevirir.
+#define TOSTRING(x) STRINGIFY(x) ///< İki aşamalı stringify için yardımcı.
 
-const std::string PRIVATE_KEY_FILE = PRIVATE_KEY_FILE_PATH;
+const std::string PRIVATE_KEY_FILE = PRIVATE_KEY_FILE_PATH; ///< Özel anahtar dosya yolu (derleme tanımı).
+const std::string CERTIFICATE_FILE = CERTIFICATE_FILE_PATH; ///< İstemci sertifika dosya yolu (derleme tanımı).
+const std::string CA_CERTIFICATE_FILE = CA_CERTIFICATE_FILE_PATH; ///< CA sertifikası dosya yolu (derleme tanımı).
 
-const std::string CERTIFICATE_FILE = CERTIFICATE_FILE_PATH;
+#define HOSTNAME "localhost" ///< TLS sunucu hostname.
+#define PORT 4433            ///< TLS sunucu portu.
 
-const std::string CA_CERTIFICATE_FILE = CA_CERTIFICATE_FILE_PATH;
-
-#define HOSTNAME "localhost"
-#define PORT 4433
-
-/*
-* @brief Initializes the SSL context
-*
-* Initializes the SSL context
-*
-* @return SSL_CTX*
-*/
-
-
-// SSL ba�lam�n� ba�lat
+/**
+ * @brief OpenSSL istemci SSL_CTX bağlamını oluşturur ve yapılandırır.
+ *
+ * Sertifika, private key ve CA doğrulama zinciri yüklenir; peer doğrulaması açılır.
+ *
+ * @return Başarılıysa SSL_CTX*; hata durumunda nullptr.
+ */
 SSL_CTX *initializeSSLContext() {
-  SSL_CTX* ctx = SSL_CTX_new(TLS_client_method());
+  SSL_CTX* ctx = SSL_CTX_new(TLS_client_method()); ///< TLS istemci bağlamı oluştur.
 
-  if (!ctx) {
-    //std::cerr << "SSL baglami olusturulamadi: " << ERR_reason_error_string(ERR_get_error()) << std::endl;
-    return nullptr;
+  if (!ctx) { ///< Oluşturma başarısızsa.
+    return nullptr; ///< Hata.
   }
 
-  // Sertifika dosyas�n� y�kle
-  if (SSL_CTX_use_certificate_file(ctx, CERTIFICATE_FILE.c_str(), SSL_FILETYPE_PEM) <= 0) {
-    //std::cerr << "Sertifika yukleme hatasi: " << ERR_reason_error_string(ERR_get_error()) << std::endl;
-    SSL_CTX_free(ctx);
-    return nullptr;
+  if (SSL_CTX_use_certificate_file(ctx, CERTIFICATE_FILE.c_str(), SSL_FILETYPE_PEM) <= 0) { ///< Sertifikayı yükle.
+    SSL_CTX_free(ctx); ///< Kaynağı serbest bırak.
+    return nullptr; ///< Hata.
   }
 
-  // �zel anahtar dosyas�n� y�kle
-  if (SSL_CTX_use_PrivateKey_file(ctx, PRIVATE_KEY_FILE.c_str(), SSL_FILETYPE_PEM) <= 0) {
-    //std::cerr << "Ozel anahtar yukleme hatasi: " << ERR_reason_error_string(ERR_get_error()) << std::endl;
-    SSL_CTX_free(ctx);
-    return nullptr;
+  if (SSL_CTX_use_PrivateKey_file(ctx, PRIVATE_KEY_FILE.c_str(), SSL_FILETYPE_PEM) <= 0) { ///< Private key yükle.
+    SSL_CTX_free(ctx); ///< Bağlamı kapat.
+    return nullptr; ///< Hata.
   }
 
-  // �zel anahtar ile sertifikan�n e�le�ip e�le�medi�ini kontrol et
-  if (!SSL_CTX_check_private_key(ctx)) {
-    //std::cerr << "Ozel anahtar dogrulama hatasi!" << std::endl;
-    SSL_CTX_free(ctx);
-    return nullptr;
+  if (!SSL_CTX_check_private_key(ctx)) { ///< Sertifika-private key eşleşiyor mu kontrol et.
+    SSL_CTX_free(ctx); ///< Bağlamı kapat.
+    return nullptr; ///< Hata.
   }
 
-  // CA sertifikas� y�kle ve do�rulama ayarla
-  if (SSL_CTX_load_verify_locations(ctx, CA_CERTIFICATE_FILE.c_str(), nullptr) <= 0) {
-    //std::cerr << "CA sertifikas� yukleme hatasi: " << ERR_reason_error_string(ERR_get_error()) << std::endl;
-    SSL_CTX_free(ctx);
-    return nullptr;
+  if (SSL_CTX_load_verify_locations(ctx, CA_CERTIFICATE_FILE.c_str(), nullptr) <= 0) { ///< CA sertifikasını yükle.
+    SSL_CTX_free(ctx); ///< Bağlamı kapat.
+    return nullptr; ///< Hata.
   }
 
-  SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, nullptr);
-  return ctx;
+  SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, nullptr); ///< Peer sertifika doğrulamasını aktif et.
+  return ctx; ///< Hazır bağlam.
 }
 
-/*
-* @brief Performs the SSL handshake and data exchange
-*
-* Performs the SSL handshake and data exchange
-*
-* @param SSL_CTX* ctx - The SSL context
-*
-* @return void
-*
-*/
-
-// SSL handshake ve veri al��veri�i yap
+/**
+ * @brief SSL handshake ve örnek veri alışverişi gerçekleştirir.
+ *
+ * Bu fonksiyon BIO üzerinden SSL bağlantı nesnesi yaratır, host:port set eder,
+ * sertifika doğrulama sonucunu kontrol eder ve örnek bir HTTP GET gönderip cevap okur.
+ *
+ * @param ctx Başlatılmış ve yapılandırılmış SSL_CTX bağlamı.
+ */
 void performSSLHandshakeAndDataExchange(SSL_CTX* ctx) {
-  SSL* ssl;
-  BIO* bio;
-  bio = BIO_new_ssl_connect(ctx);
+  SSL* ssl; ///< SSL oturumu işaretçisi (BIO içinden alınır).
+  BIO* bio; ///< OpenSSL BIO nesnesi (bağlantı + SSL katmanı).
 
-  if (!bio) {
-    //std::cerr << "BIO olusturulamadi: " << ERR_reason_error_string(ERR_get_error()) << std::endl;
-    return;
+  bio = BIO_new_ssl_connect(ctx); ///< SSL bağlantı BIO'su oluştur.
+  if (!bio) { ///< BIO oluşturulamazsa.
+    return; ///< Çık.
   }
 
-  BIO_get_ssl(bio, &ssl);
-
-  if (!ssl) {
-    //std::cerr << "SSL oturumu al�namad�!" << std::endl;
-    BIO_free_all(bio);
-    return;
+  BIO_get_ssl(bio, &ssl); ///< BIO içindeki SSL nesnesini al.
+  if (!ssl) { ///< SSL nesnesi yoksa.
+    BIO_free_all(bio); ///< BIO zincirini serbest bırak.
+    return; ///< Çık.
   }
 
-  std::string hostnameWithPort = std::string(HOSTNAME) + ":" + std::to_string(PORT);
-  BIO_set_conn_hostname(bio, hostnameWithPort.c_str());
+  std::string hostnameWithPort = std::string(HOSTNAME) + ":" + std::to_string(PORT); ///< "host:port" formatı.
+  BIO_set_conn_hostname(bio, hostnameWithPort.c_str()); ///< Hedefi BIO'ya tanımla.
 
-  //Ba�lant�y� ger�ekle�tirin
-  //   if (BIO_do_connect(bio) <= 0) {
-  //    std::cerr << "Baglanti hatasi: " << ERR_reason_error_string(ERR_get_error()) << std::endl;
-  //    BIO_free_all(bio);
-  //  return;
-  // }
+  // BIO_do_connect(bio) çağrısı yorumda bırakılmış; gerçek bağlantı için gerekir.
+  // Eğer bağlanmayacaksanız SSL_get_verify_result anlamlı olmayacaktır.
 
-  // Sertifika do�rulama
-  if (SSL_get_verify_result(ssl) != X509_V_OK) {
-    //std::cerr << "Sertifika dogrulama basarisiz!" << std::endl;
-    BIO_free_all(bio);
-    return;
+  if (SSL_get_verify_result(ssl) != X509_V_OK) { ///< Sertifika doğrulama sonucu kontrolü.
+    BIO_free_all(bio); ///< Kaynakları serbest bırak.
+    return; ///< Hata.
   }
 
-  std::cout << "Baglanti basarili ve sertifika dogrulandi!" << std::endl;
-  // HTTP GET iste�i g�nder
-  const char *request = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
-  BIO_write(bio, request, strlen(request));
-  // Yan�t� oku
-  char buffer[1024] = { 0 };
-  int bytes = BIO_read(bio, buffer, sizeof(buffer) - 1);
-  //if (bytes > 0) {
-  //  std::cout << "Sunucudan gelen veri: " << buffer << std::endl;
-  //}
-  //else {
-  //    std::cerr << "Sunucudan veri al�namad�." << std::endl;
-  //}
-  BIO_free_all(bio);
+  std::cout << "Baglanti basarili ve sertifika dogrulandi!" << std::endl; ///< Bilgi mesajı.
+
+  const char *request = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"; ///< Basit HTTP GET isteği.
+  BIO_write(bio, request, strlen(request)); ///< İsteği gönder.
+
+  char buffer[1024] = { 0 }; ///< Cevap buffer'ı.
+  int bytes = BIO_read(bio, buffer, sizeof(buffer) - 1); ///< Sunucudan cevap oku (blocking olabilir).
+  (void)bytes; ///< Kullanılmayan değişken uyarısını önler (debug çıktıları yorumlu olduğu için).
+
+  BIO_free_all(bio); ///< BIO zincirini ve SSL kaynaklarını serbest bırak.
 }
 
-
-/*
-* @brief Unnecessary computation function
-*
-* @param int value - The input value
-*
-* @return bool
-*/
-
+/**
+ * @brief Gereksiz hesaplama örneği: asal kontrolü (dummy).
+ *
+ * @param value Kontrol edilecek sayı.
+ * @return Asalsa true; değilse false.
+ */
 bool issdddPimeeasds(int value) {
-  if (value < 2) return false;
+  if (value < 2) return false; ///< 0 ve 1 asal değildir.
 
-  for (int i = 2; i <= std::sqrt(value); ++i) {
-    if (value % i == 0) return false;
+  for (int i = 2; i <= std::sqrt(value); ++i) { ///< 2..sqrt(value) aralığında bölen arar.
+    if (value % i == 0) return false; ///< Bölen bulunduysa asal değil.
   }
 
-  return true;
+  return true; ///< Bölen yoksa asal.
 }
 
-/*
-* @brief Verifies the dummy function
-*
-* Verifies the dummy function
-*
-* @return void
-*/
+/**
+ * @brief Dummy doğrulama/karmaşıklaştırma amaçlı hesaplama fonksiyonu.
+ *
+ * Üretim kodunda “anti-tamper/anti-analysis” için gürültü üretmek üzere kullanılabileceği varsayılır.
+ * Çıktısı kullanılmıyor; yan etkisiz bir CPU işi gibi davranır.
+ */
+void VerifyDum() {
+  std::vector<int> data = { 1, 2, 3, 4, 5, 6, 7, 16, 25, 30 }; ///< Örnek veri kümesi.
+  int evenCount = 0, oddCount = 0, primeCount = 0;            ///< Sayaçlar.
+  int sumMultiplesOfFive = 0, perfectSquareCount = 0;          ///< Ek sayaçlar.
+  int divisibleByThreeCount = 0, digitSumGreaterThanTen = 0;   ///< Ek sayaçlar.
+  long long unnecessaryComputationSum = 0;                     ///< Gereksiz toplam.
+  long long specialConditionCount = 0, modSevenCount = 0;      ///< Ek sayımlar.
+  double accumulatedSquareRoots = 0.0;                         ///< Kareköklü birikim.
+  int totalDigitProduct = 1;                                   ///< Basamak çarpımı birikimi.
 
-void VerifyDum() { //dummy function
-  std::vector<int> data = { 1, 2, 3, 4, 5, 6, 7, 16, 25, 30 };
-  int evenCount = 0, oddCount = 0, primeCount = 0;
-  int sumMultiplesOfFive = 0, perfectSquareCount = 0;
-  int divisibleByThreeCount = 0, digitSumGreaterThanTen = 0;
-  long long unnecessaryComputationSum = 0;
-  long long specialConditionCount = 0, modSevenCount = 0;
-  double accumulatedSquareRoots = 0.0;
-  int totalDigitProduct = 1;
+  for (int value : data) {                                     ///< İlk veri seti üzerinde dön.
+    int intermediate = value * 3;                              ///< Ara değer oluştur.
+    intermediate += 7;                                         ///< Sabit ekle.
+    intermediate /= 2;                                         ///< Böl.
+    intermediate *= value % 5;                                 ///< Mod tabanlı çarp.
+    unnecessaryComputationSum += intermediate;                  ///< Toplama ekle.
 
-  for (int value : data) {
-    int intermediate = value * 3;
-    intermediate += 7;
-    intermediate /= 2;
-    intermediate *= value % 5;
-    unnecessaryComputationSum += intermediate;
-
-    if (value % 2 == 0) {
-      evenCount++;
-      continue;
+    if (value % 2 == 0) {                                      ///< Çift sayı kontrolü.
+      evenCount++;                                             ///< Çift sayacı artır.
+      continue;                                                ///< Çiftse aşağıdaki bazı işlemleri atla.
     }
 
-    oddCount++;
+    oddCount++;                                                ///< Tek sayacı artır.
 
-    if (issdddPimeeasds(value)) {
-      primeCount++;
+    if (issdddPimeeasds(value)) {                              ///< Asal kontrolü.
+      primeCount++;                                            ///< Asal sayacı artır.
     }
 
-    if (value % 5 == 0) {
-      sumMultiplesOfFive += value;
+    if (value % 5 == 0) {                                      ///< 5'in katı mı?
+      sumMultiplesOfFive += value;                             ///< Topla.
     }
 
-    int sqrtValue = std::sqrt(value);
+    int sqrtValue = std::sqrt(value);                          ///< Kareköke indirgenmiş tam sayı.
 
-    if (sqrtValue * sqrtValue == value) {
-      perfectSquareCount++;
+    if (sqrtValue * sqrtValue == value) {                      ///< Tam kare mi?
+      perfectSquareCount++;                                    ///< Tam kare sayacı.
     }
 
-    if (value % 3 == 0) {
-      divisibleByThreeCount++;
+    if (value % 3 == 0) {                                      ///< 3'e bölünür mü?
+      divisibleByThreeCount++;                                 ///< Sayaç artır.
     }
 
-    if (value % 7 == 0) {
-      modSevenCount++;
+    if (value % 7 == 0) {                                      ///< 7'ye bölünür mü?
+      modSevenCount++;                                         ///< Sayaç artır.
     }
 
-    int digitSum = 0, digitProduct = 1;
-    int temp = value;
+    int digitSum = 0, digitProduct = 1;                        ///< Basamak toplamı/çarpımı.
+    int temp = value;                                          ///< Basamak ayrıştırma için kopya.
 
-    while (temp > 0) {
-      int digit = temp % 10;
-      digitSum += digit;
-      digitProduct *= digit;
-      temp /= 10;
+    while (temp > 0) {                                         ///< Basamaklar bitene kadar.
+      int digit = temp % 10;                                   ///< Son basamak.
+      digitSum += digit;                                       ///< Toplama ekle.
+      digitProduct *= digit;                                   ///< Çarpıma ekle.
+      temp /= 10;                                              ///< Bir basamak düş.
     }
 
-    if (digitSum > 10) {
-      digitSumGreaterThanTen++;
+    if (digitSum > 10) {                                       ///< Basamak toplamı eşiği.
+      digitSumGreaterThanTen++;                                ///< Sayaç artır.
     }
 
-    totalDigitProduct *= (digitProduct % 1000);
-    accumulatedSquareRoots += std::sqrt(value);
+    totalDigitProduct *= (digitProduct % 1000);                ///< Çarpımı sınırla ve biriktir.
+    accumulatedSquareRoots += std::sqrt(value);                ///< Kareköke dayalı birikim.
 
-    if (value % 2 == 0 && value % 3 == 0) {
-      specialConditionCount++;
+    if (value % 2 == 0 && value % 3 == 0) {                     ///< Özel koşul (6'nın katı).
+      specialConditionCount++;                                 ///< Sayaç artır.
     }
 
-    unnecessaryComputationSum += digitSum * 5 - value / 3 + 17;
+    unnecessaryComputationSum += digitSum * 5 - value / 3 + 17; ///< Ek gürültü hesap.
   }
 
-  std::vector<int> additionalData = { 12, 18, 22, 36, 45, 60, 72 };
-
-  for (int value : additionalData) {
-    int dummyCalculation = value * 2 + 3;
-    unnecessaryComputationSum += dummyCalculation % 10;
-    accumulatedSquareRoots += std::sqrt(dummyCalculation);
+  std::vector<int> additionalData = { 12, 18, 22, 36, 45, 60, 72 }; ///< Ek veri.
+  for (int value : additionalData) {                                ///< Ek veri üzerinde dön.
+    int dummyCalculation = value * 2 + 3;                           ///< Dummy hesap.
+    unnecessaryComputationSum += dummyCalculation % 10;             ///< Mod ekle.
+    accumulatedSquareRoots += std::sqrt(dummyCalculation);          ///< Kareköke ekle.
   }
 
-  std::vector<int> finalData = { 101, 202, 303, 404, 505 };
-
-  for (int value : finalData) {
-    int dummyCalculation = value * 3 - 5;
-    unnecessaryComputationSum += dummyCalculation % 20;
-    accumulatedSquareRoots += std::sqrt(dummyCalculation);
+  std::vector<int> finalData = { 101, 202, 303, 404, 505 }; ///< Final veri.
+  for (int value : finalData) {                             ///< Final veri üzerinde dön.
+    int dummyCalculation = value * 3 - 5;                   ///< Dummy hesap.
+    unnecessaryComputationSum += dummyCalculation % 20;      ///< Mod ekle.
+    accumulatedSquareRoots += std::sqrt(dummyCalculation);   ///< Kareköke ekle.
   }
+
+  // Aşağıdaki değişkenler şu an “kullanılmıyor” olabilir; amaç gürültü üretmekse bu normaldir.
+  (void)evenCount;
+  (void)oddCount;
+  (void)primeCount;
+  (void)sumMultiplesOfFive;
+  (void)perfectSquareCount;
+  (void)divisibleByThreeCount;
+  (void)digitSumGreaterThanTen;
+  (void)unnecessaryComputationSum;
+  (void)specialConditionCount;
+  (void)modSevenCount;
+  (void)accumulatedSquareRoots;
+  (void)totalDigitProduct;
 }
 
-
-
-/*
-* @brief Starts the SSL process
-*
-* Starts the SSL process
-*
-* @return void
-*/
-
-// SSL i�lemini ba�lat
+/**
+ * @brief SSL/TLS sürecini başlatır.
+ *
+ * Dummy hesaplamayı çalıştırır, OpenSSL kütüphanesini init eder, SSL_CTX oluşturur ve örnek veri alışverişini yürütür.
+ */
 void StartSSL() {
-  VerifyDum();
-  SSL_library_init();
-  SSL_load_error_strings();
-  SSL_CTX* ctx = initializeSSLContext();
+  VerifyDum();               ///< Dummy hesaplamaları çalıştır (anti-analysis / gürültü).
+  SSL_library_init();        ///< OpenSSL global init (bazı sürümlerde no-op olabilir).
+  SSL_load_error_strings();  ///< Hata string tablolarını yükle.
 
-  if (!ctx) {
-    std::cerr << "SSL baglami baslatilamadi!" << std::endl;
-    return;
+  SSL_CTX* ctx = initializeSSLContext(); ///< SSL bağlamını oluştur.
+
+  if (!ctx) { ///< Bağlam oluşturulamadıysa.
+    std::cerr << "SSL baglami baslatilamadi!" << std::endl; ///< Hata mesajı.
+    return; ///< Çık.
   }
 
-  performSSLHandshakeAndDataExchange(ctx);
-  SSL_CTX_free(ctx);
+  performSSLHandshakeAndDataExchange(ctx); ///< Handshake ve örnek veri alışverişi.
+  SSL_CTX_free(ctx);                       ///< Bağlamı serbest bırak.
 }

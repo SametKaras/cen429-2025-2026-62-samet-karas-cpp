@@ -1,486 +1,483 @@
-// SessionEncryption.cpp
-/*
-* @file SessionEncryption.cpp
-*
-* @brief Provides functions for session encryption
-*/
-#include "SessionEncryption.h"
-#include "DynamicAssetProtection.h" // Cihaz parmak izi fonksiyonu için
-#include <openssl/evp.h>
-#include <openssl/rand.h>
-#include <openssl/buffer.h>
-#include <iostream>
-#include <iomanip>
-#include <sstream>
-#include <vector>
-#include <cstring> // memset için
+ï»¿
 
 
-// Master anahtar
-static unsigned char masterKey[32];
+/**
+ * @file SessionEncryption.cpp
+ * @brief Implements functions for session encryption, key protection, and Base64 decoding.
+ *
+ * This translation unit provides:
+ * - Base64 decoding (OpenSSL BIO)
+ * - AES-256-CBC encryption/decryption for session data using a session key and IV
+ * - AES-256-ECB encryption/decryption for protecting the session key using a master key
+ * - Lazy retrieval of encrypted session key material
+ *
+ * @note This file uses OpenSSL EVP APIs. Proper key/IV initialization is required prior to use.
+ */
 
-// Encrypted oturum anahtarý ve IV
-static std::string encryptedSessionKey = "";//Þifrelenmiþ oturum anahtarý
-static std::string encryptedSessionIV = "";//Þifrelenmiþ oturum IV
+// SessionEncryption.cpp                                               ///< Source file name marker.
 
-// Oturum anahtarý ve IV
-static unsigned char sessionKey[32];//Oturum anahtarý
-static unsigned char sessionIV[16];//Oturum IV.
+#include "SessionEncryption.h"                                        ///< Public session encryption API.
+#include "DynamicAssetProtection.h"                                  ///< Device fingerprint function dependency.
+#include <openssl/evp.h>                                             ///< OpenSSL EVP cipher API.
+#include <openssl/rand.h>                                            ///< OpenSSL RNG API (may be used elsewhere).
+#include <openssl/buffer.h>                                          ///< OpenSSL BUF_MEM for Base64 helpers.
+#include <iostream>                                                  ///< std::cout/std::cerr (debug/log).
+#include <iomanip>                                                   ///< std::setw/std::setfill (formatting).
+#include <sstream>                                                   ///< std::ostringstream utilities.
+#include <vector>                                                    ///< std::vector container.
+#include <cstring>                                                   ///< memset and low-level memory operations.
 
-/*
-* @brief Base64 encode process
-*
-* @param data Data to encode
-*
-* @param len Length of the data
-*
-* @return std::string
-*/
-// Yardýmcý fonksiyon: Base64'ü çözerek binary veriye dönüþtürme
-LOCAL_EVENT_PLANNER_API std::vector<unsigned char> base64Decode(const std::string& encodedData) {//Base64 çözme
-  BIO* bio = BIO_new_mem_buf(encodedData.data(), encodedData.length());//BIO bellek tamponu oluþtur
-  BIO* b64 = BIO_new(BIO_f_base64());//Base64 BIO oluþtur
-  bio = BIO_push(b64, bio);//BIO'larý birleþtir
-  BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);//Base64 satýr sonu karakterlerini kaldýr
-  std::vector<unsigned char> decodedData(encodedData.size());//Çözülen veri için bellek ayýr
-  int decodedLen = BIO_read(bio, decodedData.data(), encodedData.size());//Base64 veriyi çöz
+// Master key                                                        ///< Master key used to encrypt session keys.
+static unsigned char masterKey[32];                                  ///< 256-bit master key (static storage).
 
-  if (decodedLen <= 0) {//Çözme baþarýsýzsa
-    //std::cerr << "Base64 decode hatasý." << std::endl;//Hata mesajý yaz
-    decodedData.clear();//Çözülen veriyi temizle
-  } else { //Çözme baþarýlýysa
-    decodedData.resize(decodedLen);//Çözülen verinin boyutunu ayarla
-  }
+// Encrypted session key and IV                                       ///< Cached encrypted session materials.
+static std::string encryptedSessionKey = "";                         ///< Encrypted session key (Base64 string).
+static std::string encryptedSessionIV = "";                          ///< Encrypted session IV (Base64 string).
 
-  BIO_free_all(bio);//BIO'larý serbest býrak
-  return decodedData;//Çözülen veriyi döndür
+// Session key and IV                                                 ///< Raw session key material (in memory).
+static unsigned char sessionKey[32];                                 ///< 256-bit session key (AES-256).
+static unsigned char sessionIV[16];                                  ///< 128-bit IV (AES-CBC).
+
+/**
+ * @brief Decodes a Base64-encoded string into binary data.
+ *
+ * Uses an OpenSSL BIO chain:
+ * - Memory BIO as source
+ * - Base64 filter BIO for decoding
+ *
+ * @param encodedData Base64-encoded input string.
+ * @return Decoded binary data; returns an empty vector if decoding fails.
+ */
+LOCAL_EVENT_PLANNER_API std::vector<unsigned char> base64Decode(const std::string& encodedData) { // Base64 decode.
+    BIO* bio = BIO_new_mem_buf(encodedData.data(), encodedData.length()); ///< Create a memory BIO from input.
+    BIO* b64 = BIO_new(BIO_f_base64());                                   ///< Create a Base64 filter BIO.
+    bio = BIO_push(b64, bio);                                             ///< Chain: b64 -> memory BIO.
+    BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);                            ///< Disable newlines in Base64.
+
+    std::vector<unsigned char> decodedData(encodedData.size());            ///< Allocate output buffer (upper bound).
+    int decodedLen = BIO_read(bio, decodedData.data(), encodedData.size());///< Decode Base64 into output buffer.
+
+    if (decodedLen <= 0) {                                                 ///< If decoding failed or produced no data.
+        //std::cerr << "Base64 decode error." << std::endl;                ///< Optional error log (disabled).
+        decodedData.clear();                                               ///< Clear output to indicate failure.
+    }
+    else {                                                                 ///< If decoding succeeded.
+        decodedData.resize(decodedLen);                                     ///< Resize to actual decoded length.
+    }
+
+    BIO_free_all(bio);                                                     ///< Free the entire BIO chain.
+    return decodedData;                                                    ///< Return decoded bytes.
 }
 
-/*
-* @brief Base64 encode process
-*
-* @param buffer Data to encode
-*
-* @param length Length of the data
-*
-* @return std::string
-*/
-// Oturum verilerini þifreleme fonksiyonu
+/**
+ * @brief Encrypts session data using AES-256-CBC and returns Base64 ciphertext.
+ *
+ * @param data Plain-text session data to encrypt.
+ * @return Base64-encoded ciphertext; returns an empty string on failure.
+ *
+ * @pre sessionKey and sessionIV must be initialized (e.g., via setupSessionEncryption()).
+ */
 LOCAL_EVENT_PLANNER_API std::string encryptSessionData(const std::string& data) {
-  // Þifreleme için bir yeni þifreleme baðlamý oluþturuyoruz.
-  EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();                             ///< Allocate a new cipher context.
 
-  if (!ctx) {
-    // Þifreleme baðlamý oluþturulamazsa hata mesajý veriliyor.
-    //std::cerr << "Cipher context oluþturulamadý." << std::endl;
-    return "";
-  }
+    if (!ctx) {                                                            ///< If context allocation failed.
+        //std::cerr << "Failed to create cipher context." << std::endl;     ///< Optional error log (disabled).
+        return "";                                                         ///< Signal failure.
+    }
 
-  // AES-256-CBC algoritmasýný baþlatýyoruz ve oturum anahtarý ile IV kullanýyoruz.
-  if (EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, sessionKey, sessionIV) != 1) {
-    // Þifreleme algoritmasý baþlatýlamazsa hata mesajý veriliyor ve baðlam serbest býrakýlýyor.
-    //std::cerr << "EVP_EncryptInit_ex baþarýsýz." << std::endl;
-    EVP_CIPHER_CTX_free(ctx);
-    return "";
-  }
+    // Initialize AES-256-CBC with the current session key and IV.          ///< Cipher initialization.
+    if (EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, sessionKey, sessionIV) != 1) {
+        //std::cerr << "EVP_EncryptInit_ex failed." << std::endl;           ///< Optional error log (disabled).
+        EVP_CIPHER_CTX_free(ctx);                                          ///< Release context.
+        return "";                                                         ///< Signal failure.
+    }
 
-  // Þifrelenmiþ veriyi tutmak için bir vektör oluþturuyoruz. Boyut, giriþ verisinin boyutu + blok boyutu.
-  std::vector<unsigned char> ciphertext(data.size() + EVP_CIPHER_block_size(EVP_aes_256_cbc()));
-  int len, ciphertext_len;
+    // Allocate ciphertext buffer: plaintext size + block size.             ///< Output sizing strategy.
+    std::vector<unsigned char> ciphertext(data.size() + EVP_CIPHER_block_size(EVP_aes_256_cbc()));
+    int len, ciphertext_len;                                               ///< len = chunk length, ciphertext_len = total.
 
-  // Verinin þifrelenmiþ ilk kýsmýný üretiyoruz.
-  if (EVP_EncryptUpdate(ctx, ciphertext.data(), &len, reinterpret_cast<const unsigned char*>(data.c_str()), data.size()) != 1) {
-    // Þifreleme sýrasýnda hata oluþursa hata mesajý veriliyor ve baðlam serbest býrakýlýyor.
-    //std::cerr << "EVP_EncryptUpdate baþarýsýz." << std::endl;
-    EVP_CIPHER_CTX_free(ctx);
-    return "";
-  }
+    // Encrypt the input data.                                              ///< Streaming encryption (update phase).
+    if (EVP_EncryptUpdate(ctx,
+                         ciphertext.data(),
+                         &len,
+                         reinterpret_cast<const unsigned char*>(data.c_str()),
+                         static_cast<int>(data.size())) != 1) {
+        //std::cerr << "EVP_EncryptUpdate failed." << std::endl;            ///< Optional error log (disabled).
+        EVP_CIPHER_CTX_free(ctx);                                          ///< Release context.
+        return "";                                                         ///< Signal failure.
+    }
 
-  ciphertext_len = len; // Þifrelenmiþ verinin uzunluðunu kaydediyoruz.
+    ciphertext_len = len;                                                  ///< Record produced ciphertext length so far.
 
-  // Þifreleme iþlemini tamamlýyoruz.
-  if (EVP_EncryptFinal_ex(ctx, ciphertext.data() + len, &len) != 1) {
-    // Þifreleme iþlemi tamamlanamazsa hata mesajý veriliyor ve baðlam serbest býrakýlýyor.
-    //std::cerr << "EVP_EncryptFinal_ex baþarýsýz." << std::endl;
-    EVP_CIPHER_CTX_free(ctx);
-    return "";
-  }
+    // Finalize encryption (padding, final block).                          ///< Finalization phase.
+    if (EVP_EncryptFinal_ex(ctx, ciphertext.data() + len, &len) != 1) {
+        //std::cerr << "EVP_EncryptFinal_ex failed." << std::endl;          ///< Optional error log (disabled).
+        EVP_CIPHER_CTX_free(ctx);                                          ///< Release context.
+        return "";                                                         ///< Signal failure.
+    }
 
-  ciphertext_len += len; // Tam þifrelenmiþ verinin uzunluðunu güncelliyoruz.
-  // Þifreleme baðlamýný serbest býrakýyoruz.
-  EVP_CIPHER_CTX_free(ctx);
-  // Þifrelenmiþ veriyi Base64 formatýna dönüþtürerek döndürüyoruz.
-  return base64Encode(ciphertext.data(), ciphertext_len);
+    ciphertext_len += len;                                                 ///< Add final block length to total.
+    EVP_CIPHER_CTX_free(ctx);                                              ///< Release cipher context.
+
+    return base64Encode(ciphertext.data(), ciphertext_len);                ///< Return Base64 ciphertext.
 }
 
-/*
-* @brief Base64 encode process
-*
-* @param encryptedData Data to decode
-*
-* @return std::string
-*/
-// Oturum verilerini deþifre etme fonksiyonu
+/**
+ * @brief Decrypts Base64 ciphertext into plain-text session data using AES-256-CBC.
+ *
+ * @param encryptedData Base64-encoded ciphertext to decrypt.
+ * @return Decrypted plain-text string; returns an empty string on failure.
+ *
+ * @pre sessionKey and sessionIV must match the values used during encryption.
+ */
 LOCAL_EVENT_PLANNER_API std::string decryptSessionData(const std::string& encryptedData) {
-  // Base64 ile kodlanmýþ þifrelenmiþ veriyi çözerek binary forma dönüþtürüyoruz.
-  std::vector<unsigned char> ciphertext = base64Decode(encryptedData);
+    std::vector<unsigned char> ciphertext = base64Decode(encryptedData);   ///< Decode Base64 to raw ciphertext.
 
-  // Eðer çözme iþlemi baþarýsýz olursa boþ bir string döndürüyoruz.
-  if (ciphertext.empty()) return "";
+    if (ciphertext.empty()) return "";                                     ///< Fail fast if decoding failed.
 
-  // Þifre çözme iþlemi için bir yeni þifreleme baðlamý oluþturuyoruz.
-  EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();                             ///< Allocate a new cipher context.
 
-  // Eðer baðlam oluþturulamaz veya þifre çözme baþlatýlamazsa hata veriyoruz.
-  if (!ctx || EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, sessionKey, sessionIV) != 1) {
-    //std::cerr << "Cipher context veya deþifre baþlatýlamadý." << std::endl;
-    EVP_CIPHER_CTX_free(ctx); // Baðlamý serbest býrakýyoruz.
-    return "";
-  }
+    // Initialize AES-256-CBC decryption with the current session key and IV.///< Decryption initialization.
+    if (!ctx || EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, sessionKey, sessionIV) != 1) {
+        //std::cerr << "Failed to init decrypt context." << std::endl;      ///< Optional error log (disabled).
+        EVP_CIPHER_CTX_free(ctx);                                          ///< Release context (safe if ctx is null?).
+        return "";                                                         ///< Signal failure.
+    }
 
-  // Çözülen metni tutmak için bir vektör oluþturuyoruz, boyut þifreli metnin boyutuyla ayný.
-  std::vector<unsigned char> plaintext(ciphertext.size());
-  int len, plaintext_len;
+    std::vector<unsigned char> plaintext(ciphertext.size());               ///< Allocate plaintext buffer (upper bound).
+    int len, plaintext_len;                                                ///< len = chunk length, plaintext_len = total.
 
-  // Þifreli metni çözmeye baþlýyoruz.
-  if (EVP_DecryptUpdate(ctx, plaintext.data(), &len, ciphertext.data(), ciphertext.size()) != 1) {
-    // Eðer þifre çözme sýrasýnda hata olursa, hata mesajý veriyoruz ve baðlamý serbest býrakýyoruz.
-    //std::cerr << "EVP_DecryptUpdate baþarýsýz." << std::endl;
-    EVP_CIPHER_CTX_free(ctx);
-    return "";
-  }
+    // Decrypt the ciphertext (update phase).                               ///< Streaming decryption.
+    if (EVP_DecryptUpdate(ctx,
+                         plaintext.data(),
+                         &len,
+                         ciphertext.data(),
+                         static_cast<int>(ciphertext.size())) != 1) {
+        //std::cerr << "EVP_DecryptUpdate failed." << std::endl;            ///< Optional error log (disabled).
+        EVP_CIPHER_CTX_free(ctx);                                          ///< Release context.
+        return "";                                                         ///< Signal failure.
+    }
 
-  plaintext_len = len; // Çözülen kýsmýn uzunluðunu kaydediyoruz.
+    plaintext_len = len;                                                   ///< Record output length so far.
 
-  // Þifre çözme iþlemini tamamlýyoruz.
-  if (EVP_DecryptFinal_ex(ctx, plaintext.data() + len, &len) != 1) {
-    // Eðer tamamlanamazsa hata mesajý veriyoruz ve baðlamý serbest býrakýyoruz.
-    //std::cerr << "EVP_DecryptFinal_ex baþarýsýz." << std::endl;
-    EVP_CIPHER_CTX_free(ctx);
-    return "";
-  }
+    // Finalize decryption (padding validation).                             ///< Finalization phase.
+    if (EVP_DecryptFinal_ex(ctx, plaintext.data() + len, &len) != 1) {
+        //std::cerr << "EVP_DecryptFinal_ex failed." << std::endl;          ///< Optional error log (disabled).
+        EVP_CIPHER_CTX_free(ctx);                                          ///< Release context.
+        return "";                                                         ///< Signal failure.
+    }
 
-  plaintext_len += len; // Tam çözülen verinin uzunluðunu güncelliyoruz.
-  // Þifreleme baðlamýný serbest býrakýyoruz.
-  EVP_CIPHER_CTX_free(ctx);
-  // Çözülen metni std::string formatýnda döndürüyoruz.
-  return std::string(reinterpret_cast<char*>(plaintext.data()), plaintext_len);
+    plaintext_len += len;                                                  ///< Add final bytes.
+    EVP_CIPHER_CTX_free(ctx);                                              ///< Release cipher context.
+
+    return std::string(reinterpret_cast<char*>(plaintext.data()), plaintext_len); ///< Return plain-text string.
 }
 
-/*
-* @brief Base64 encode process
-*
-* @param data Data to encode
-*
-* @param len Length of the data
-*
-* @return std::string
-*/
-// Oturum anahtarýný þifreleme fonksiyonu
+/**
+ * @brief Encrypts a raw binary key using AES-256-ECB with the master key and returns Base64 ciphertext.
+ *
+ * @param key Pointer to the raw key bytes.
+ * @param keyLen Length of the key buffer in bytes.
+ * @return Base64-encoded encrypted key; returns an empty string on failure.
+ *
+ * @warning AES-ECB is generally discouraged for data encryption; here it is used only to protect key material.
+ */
 LOCAL_EVENT_PLANNER_API std::string encryptKey(const unsigned char* key, size_t keyLen) {
-  // Yeni bir þifreleme baðlamý oluþturuyoruz.
-  EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-  // IV (Initialization Vector) baþlatýyoruz, ECB modunda kullanýlmasa da bir boþ IV oluþturuluyor.
-  unsigned char iv[16] = {};
-  // Þifreli veriyi tutacak bir vektör oluþturuyoruz, boyutu anahtar boyutundan biraz büyük olmalý.
-  std::vector<unsigned char> ciphertext(keyLen + EVP_CIPHER_block_size(EVP_aes_256_ecb()));
-  int len, ciphertext_len;
+    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();                             ///< Allocate cipher context.
 
-  // Þifreleme iþlemini baþlatýyoruz, AES-256-ECB algoritmasý ve masterKey ile.
-  if (!ctx || EVP_EncryptInit_ex(ctx, EVP_aes_256_ecb(), NULL, masterKey, iv) != 1) {
-    // Eðer baðlam oluþturulamazsa veya iþlem baþlatýlamazsa hata mesajý veriyoruz.
-    //std::cerr << "Anahtar þifreleme baþlatýlamadý." << std::endl;
-    EVP_CIPHER_CTX_free(ctx); // Baðlamý serbest býrakýyoruz.
-    return "";
-  }
+    unsigned char iv[16] = {};                                              ///< Dummy IV (ECB does not use IV).
+    std::vector<unsigned char> ciphertext(keyLen + EVP_CIPHER_block_size(EVP_aes_256_ecb())); ///< Output buffer.
+    int len, ciphertext_len;                                                ///< Length tracking.
 
-  // Þifreleme iþlemini baþlatýyoruz ve anahtar verisini þifreliyoruz.
-  if (EVP_EncryptUpdate(ctx, ciphertext.data(), &len, key, keyLen) != 1) {
-    // Eðer þifreleme sýrasýnda hata olursa, hata mesajý veriyoruz ve baðlamý serbest býrakýyoruz.
-    //std::cerr << "Anahtar þifreleme baþarýsýz." << std::endl;
-    EVP_CIPHER_CTX_free(ctx);
-    return "";
-  }
+    // Initialize AES-256-ECB using masterKey.                               ///< Cipher initialization.
+    if (!ctx || EVP_EncryptInit_ex(ctx, EVP_aes_256_ecb(), NULL, masterKey, iv) != 1) {
+        //std::cerr << "Failed to init key encryption." << std::endl;       ///< Optional error log (disabled).
+        EVP_CIPHER_CTX_free(ctx);                                          ///< Release context.
+        return "";                                                         ///< Signal failure.
+    }
 
-  ciphertext_len = len; // Þifrelenen kýsmýn uzunluðunu kaydediyoruz.
+    // Encrypt the raw key bytes.                                            ///< Encryption update.
+    if (EVP_EncryptUpdate(ctx, ciphertext.data(), &len, key, static_cast<int>(keyLen)) != 1) {
+        //std::cerr << "Key encryption failed." << std::endl;               ///< Optional error log (disabled).
+        EVP_CIPHER_CTX_free(ctx);                                          ///< Release context.
+        return "";                                                         ///< Signal failure.
+    }
 
-  // Þifreleme iþlemini tamamlýyoruz.
-  if (EVP_EncryptFinal_ex(ctx, ciphertext.data() + len, &len) != 1) {
-    // Eðer tamamlanamazsa hata mesajý veriyoruz ve baðlamý serbest býrakýyoruz.
-    //std::cerr << "Anahtar þifreleme tamamlanamadý." << std::endl;
-    EVP_CIPHER_CTX_free(ctx);
-    return "";
-  }
+    ciphertext_len = len;                                                   ///< Record output size so far.
 
-  ciphertext_len += len; // Tam þifrelenmiþ verinin uzunluðunu güncelliyoruz.
-  // Þifreleme baðlamýný serbest býrakýyoruz.
-  EVP_CIPHER_CTX_free(ctx);
-  // Þifrelenmiþ veriyi Base64 formatýna çevirip döndürüyoruz.
-  return base64Encode(ciphertext.data(), ciphertext_len);
+    // Finalize encryption.                                                  ///< Encryption final.
+    if (EVP_EncryptFinal_ex(ctx, ciphertext.data() + len, &len) != 1) {
+        //std::cerr << "Key encryption finalization failed." << std::endl;  ///< Optional error log (disabled).
+        EVP_CIPHER_CTX_free(ctx);                                          ///< Release context.
+        return "";                                                         ///< Signal failure.
+    }
+
+    ciphertext_len += len;                                                  ///< Total encrypted key length.
+    EVP_CIPHER_CTX_free(ctx);                                               ///< Release context.
+
+    return base64Encode(ciphertext.data(), ciphertext_len);                 ///< Return Base64 encrypted key.
 }
 
-/*
-* @brief Base64 decrypt key process
-*
-* @param encryptedKey Encrypted key to decrypt
-*
-* @param key Buffer to store the decrypted key
-*
-* @param keyLen Length of the key buffer
-*
-* @return bool
-*/
-// Oturum anahtarýný deþifreleme fonksiyonu
+/**
+ * @brief Decrypts an encrypted (Base64) key using AES-256-ECB with the master key.
+ *
+ * @param encryptedKey Base64-encoded encrypted key.
+ * @param key Output buffer where the decrypted key bytes will be written.
+ * @param keyLen Length of the output buffer in bytes (must match expected key size).
+ * @return True if decryption succeeds, false otherwise.
+ */
 LOCAL_EVENT_PLANNER_API bool decryptKey(const std::string& encryptedKey, unsigned char* key, size_t keyLen) {
-  // Þifrelenmiþ anahtarý Base64 formatýndan çözerek binary forma dönüþtürüyoruz.
-  std::vector<unsigned char> ciphertext = base64Decode(encryptedKey);
+    std::vector<unsigned char> ciphertext = base64Decode(encryptedKey);     ///< Decode Base64 into ciphertext bytes.
 
-  // Eðer çözümleme baþarýsýz olursa iþlemi sonlandýrýyoruz.
-  if (ciphertext.empty()) return false;
+    if (ciphertext.empty()) return false;                                   ///< Fail fast on decode failure.
 
-  // Þifre çözme baðlamý oluþturuyoruz.
-  EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-  // IV (Initialization Vector) baþlatýyoruz. ECB modunda kullanýlmasa da boþ bir IV saðlanýyor.
-  unsigned char iv[16] = {};
-  int len, plaintext_len;
+    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();                             ///< Allocate cipher context.
+    unsigned char iv[16] = {};                                              ///< Dummy IV (ECB does not use IV).
+    int len, plaintext_len;                                                 ///< Length tracking.
 
-  // Þifre çözme iþlemini baþlatýyoruz. AES-256-ECB algoritmasý ve masterKey kullanýyoruz.
-  if (!ctx || EVP_DecryptInit_ex(ctx, EVP_aes_256_ecb(), NULL, masterKey, iv) != 1) {
-    // Eðer baðlam oluþturulamazsa veya iþlem baþlatýlamazsa hata mesajý veriyoruz.
-    //std::cerr << "Anahtar deþifreleme baþlatýlamadý." << std::endl;
-    EVP_CIPHER_CTX_free(ctx); // Baðlamý serbest býrakýyoruz.
-    return false;
-  }
+    // Initialize AES-256-ECB decryption using masterKey.                     ///< Decryption initialization.
+    if (!ctx || EVP_DecryptInit_ex(ctx, EVP_aes_256_ecb(), NULL, masterKey, iv) != 1) {
+        //std::cerr << "Failed to init key decryption." << std::endl;       ///< Optional error log (disabled).
+        EVP_CIPHER_CTX_free(ctx);                                          ///< Release context.
+        return false;                                                      ///< Signal failure.
+    }
 
-  // Þifrelenmiþ veriyi çözmeye baþlýyoruz.
-  if (EVP_DecryptUpdate(ctx, key, &len, ciphertext.data(), ciphertext.size()) != 1) {
-    // Eðer çözümleme sýrasýnda hata oluþursa hata mesajý veriyoruz.
-    //std::cerr << "Anahtar deþifreleme baþarýsýz." << std::endl;
-    EVP_CIPHER_CTX_free(ctx); // Baðlamý serbest býrakýyoruz.
-    return false;
-  }
+    // Decrypt ciphertext into the provided output buffer.                    ///< Decryption update.
+    if (EVP_DecryptUpdate(ctx, key, &len, ciphertext.data(), static_cast<int>(ciphertext.size())) != 1) {
+        //std::cerr << "Key decryption failed." << std::endl;               ///< Optional error log (disabled).
+        EVP_CIPHER_CTX_free(ctx);                                          ///< Release context.
+        return false;                                                      ///< Signal failure.
+    }
 
-  plaintext_len = len; // Çözülmüþ verinin uzunluðunu kaydediyoruz.
+    plaintext_len = len;                                                    ///< Record output length so far.
+    (void)plaintext_len;                                                    ///< Not otherwise used; keep for readability.
 
-  // Þifre çözme iþlemini tamamlýyoruz.
-  if (EVP_DecryptFinal_ex(ctx, key + len, &len) != 1) {
-    // Eðer tamamlanamazsa hata mesajý veriyoruz.
-    //std::cerr << "Anahtar deþifreleme tamamlanamadý." << std::endl;
-    EVP_CIPHER_CTX_free(ctx); // Baðlamý serbest býrakýyoruz.
-    return false;
-  }
+    // Finalize decryption (padding validation).                              ///< Decryption final.
+    if (EVP_DecryptFinal_ex(ctx, key + len, &len) != 1) {
+        //std::cerr << "Key decryption finalization failed." << std::endl;  ///< Optional error log (disabled).
+        EVP_CIPHER_CTX_free(ctx);                                          ///< Release context.
+        return false;                                                      ///< Signal failure.
+    }
 
-  plaintext_len += len; // Tam çözülmüþ verinin uzunluðunu güncelliyoruz.
-  // Þifre çözme baðlamýný serbest býrakýyoruz.
-  EVP_CIPHER_CTX_free(ctx);
-  return true; // Baþarýlý bir þekilde tamamlandýðýný belirtiyoruz.
+    plaintext_len += len;                                                   ///< Total decrypted length (for reference).
+    EVP_CIPHER_CTX_free(ctx);                                               ///< Release cipher context.
+
+    (void)keyLen;                                                           ///< keyLen not used directly in current code.
+    return true;                                                            ///< Indicate success.
 }
 
-
-
-/*
-* @brief Get the encrypted session key
-*
-* @return std::string
-
-*/
-/// Þifrelenmiþ oturum anahtarý ve IV'yi alma fonksiyonlarý
-
-// Oturum anahtarýný þifreleyerek þifrelenmiþ oturum anahtarýný döndüren fonksiyon
+/**
+ * @brief Returns the encrypted session key (lazily initialized).
+ *
+ * If the cached encrypted session key is empty, it is generated by encrypting
+ * the in-memory sessionKey using encryptKey().
+ *
+ * @return Base64-encoded encrypted session key.
+ */
 LOCAL_EVENT_PLANNER_API std::string getEncryptedSessionKey() {
-  if (encryptedSessionKey.empty()) { // Eðer þifrelenmiþ oturum anahtarý henüz oluþturulmamýþsa
-    encryptedSessionKey = encryptKey(sessionKey, sizeof(sessionKey)); // Oturum anahtarýný þifreler ve saklar
-  }
+    if (encryptedSessionKey.empty()) {                                      ///< If not generated yet.
+        encryptedSessionKey = encryptKey(sessionKey, sizeof(sessionKey));   ///< Encrypt and cache the session key.
+    }
 
-  return encryptedSessionKey; // Þifrelenmiþ oturum anahtarýný döndürür
+    return encryptedSessionKey;                                             ///< Return cached encrypted key.
 }
 
+/**
+ * @brief Unnecessary prime-check helper (dummy).
+ *
+ * @param value Value to test for primality.
+ * @return True if prime, false otherwise.
+ */
 bool sqwrrlfdw(int value) {
-  if (value < 2) return false;
+    if (value < 2) return false;                                            ///< 0 and 1 are not prime.
 
-  for (int i = 2; i <= std::sqrt(value); ++i) {
-    if (value % i == 0) return false;
-  }
+    for (int i = 2; i <= std::sqrt(value); ++i) {                           ///< Search divisors up to sqrt(value).
+        if (value % i == 0) return false;                                   ///< Divisor found => not prime.
+    }
 
-  return true;
+    return true;                                                            ///< No divisors found => prime.
 }
 
-void ttassoiyrrxcfd() {
-  std::vector<int> data = { 1, 2, 3, 4, 5, 6, 7, 16, 25, 30 };
-  std::vector<int> additionalData = { 12, 18, 22, 36, 45, 60, 72 };
-  std::vector<int> finalData = { 101, 202, 303, 404, 505 };
-  // Gereksiz deðiþkenler
-  int evenCount = 0, oddCount = 0, primeCount = 0;
-  int sumMultiplesOfFive = 0, perfectSquareCount = 0;
-  int divisibleByThreeCount = 0, digitSumGreaterThanTen = 0;
-  long long unnecessaryComputationSum = 0, totalIterations = 0;
-  long long specialConditionCount = 0, modSevenCount = 0;
-  double accumulatedSquareRoots = 0.0;
-  int totalDigitProduct = 1;
-  // Gereksiz deðiþkenler
-  int a = 0;
-  int b = 1;
-  int c = 2;
-  int d = 3;
-  int uselessCalculation1 = 0;
-  int uselessCalculation2 = 0;
-  int uselessCalculation3 = 0;
+/**
+ * @brief Unnecessary prime-check helper (dummy).
+ *
+ */
+void ttassoiyrrxcfd() {                                                ///< Dummy workload function (obfuscation/noise).
+    std::vector<int> data = { 1, 2, 3, 4, 5, 6, 7, 16, 25, 30 };        ///< Primary data set for dummy processing.
+    std::vector<int> additionalData = { 12, 18, 22, 36, 45, 60, 72 };   ///< Additional data set for dummy processing.
+    std::vector<int> finalData = { 101, 202, 303, 404, 505 };           ///< Final data set for dummy processing.
+    // Gereksiz deÄŸiÅŸkenler                                             ///< Unused variables (noise).
+    int evenCount = 0, oddCount = 0, primeCount = 0;                    ///< Counters (even/odd/prime).
+    int sumMultiplesOfFive = 0, perfectSquareCount = 0;                 ///< Sum/counter placeholders.
+    int divisibleByThreeCount = 0, digitSumGreaterThanTen = 0;          ///< More counters (unused).
+    long long unnecessaryComputationSum = 0, totalIterations = 0;       ///< Accumulators for dummy computation.
+    long long specialConditionCount = 0, modSevenCount = 0;             ///< Additional unused counters.
+    double accumulatedSquareRoots = 0.0;                                ///< Accumulated sqrt values (unused).
+    int totalDigitProduct = 1;                                          ///< Accumulated digit product (unused).
+    // Gereksiz deÄŸiÅŸkenler                                             ///< More unused variables (noise).
+    int a = 0;                                                          ///< Dummy variable.
+    int b = 1;                                                          ///< Dummy variable.
+    int c = 2;                                                          ///< Dummy variable.
+    int d = 3;                                                          ///< Dummy variable.
+    int uselessCalculation1 = 0;                                        ///< Dummy accumulator.
+    int uselessCalculation2 = 0;                                        ///< Dummy accumulator.
+    int uselessCalculation3 = 0;                                        ///< Dummy accumulator.
 
-  for (int value : data) {
-    totalIterations++;
-    // Gereksiz iþlemler
-    int intermediate = value * 3;
-    intermediate += 7;
-    intermediate -= 7;
-    intermediate /= 2;
-    intermediate *= value % 5;
-    intermediate += 1 - 1;
-    unnecessaryComputationSum += intermediate;
-    int e = 4;
-    int f = 5;
-    int g = 6;
-    int h = 7;
-    int i = 8;
-    int j = 9;
-    a = a + 1 - 1 + 2 - 2; // Daha fazla gereksiz iþlem
-    b = b * 2 / 2 + 5 - 5;
-    c = c + a - b + 3 - 3;
-    d = d * 4 / 4 - c + 6 - 6;
+    for (int value : data) {                                            ///< Iterate over primary data set.
+        totalIterations++;                                              ///< Count total iterations.
+        // Gereksiz iÅŸlemler                                             ///< Unnecessary operations (noise).
+        int intermediate = value * 3;                                   ///< Compute intermediate value.
+        intermediate += 7;                                              ///< Add constant (noise).
+        intermediate -= 7;                                              ///< Subtract constant (net zero).
+        intermediate /= 2;                                              ///< Divide intermediate value.
+        intermediate *= value % 5;                                      ///< Multiply by (value mod 5).
+        intermediate += 1 - 1;                                          ///< No-op arithmetic.
+        unnecessaryComputationSum += intermediate;                       ///< Accumulate noise computation.
+        int e = 4;                                                      ///< Dummy variable.
+        int f = 5;                                                      ///< Dummy variable.
+        int g = 6;                                                      ///< Dummy variable.
+        int h = 7;                                                      ///< Dummy variable.
+        int i = 8;                                                      ///< Dummy variable (shadows loop vars elsewhere).
+        int j = 9;                                                      ///< Dummy variable.
+        a = a + 1 - 1 + 2 - 2; // Daha fazla gereksiz iÅŸlem             ///< No-op arithmetic assignment.
+        b = b * 2 / 2 + 5 - 5;                                          ///< No-op arithmetic assignment.
+        c = c + a - b + 3 - 3;                                          ///< Dummy arithmetic using a/b.
+        d = d * 4 / 4 - c + 6 - 6;                                      ///< Dummy arithmetic using c.
 
-    if (value % 2 == 0) {
-      evenCount++;
-      continue;
+        if (value % 2 == 0) {                                           ///< If the value is even.
+            evenCount++;                                                ///< Increment even counter.
+            continue;                                                   ///< Skip remaining processing for even values.
+        }
+
+        oddCount++;                                                     ///< Increment odd counter.
+
+        if (sqwrrlfdw(value)) {                                         ///< Prime check (dummy helper).
+            primeCount++;                                               ///< Increment prime counter.
+        }
+
+        if (value % 5 == 0) {                                           ///< Check if multiple of five.
+            sumMultiplesOfFive += value;                                ///< Accumulate multiples of five.
+        }
+
+        int sqrtValue = std::sqrt(value);                               ///< Compute integer sqrt component.
+
+        if (sqrtValue * sqrtValue == value) {                           ///< Check if value is a perfect square.
+            perfectSquareCount++;                                       ///< Increment perfect square counter.
+        }
+
+        if (value % 3 == 0) {                                           ///< Check divisibility by 3.
+            divisibleByThreeCount++;                                    ///< Increment divisible-by-three counter.
+        }
+
+        if (value % 7 == 0) {                                           ///< Check divisibility by 7.
+            modSevenCount++;                                            ///< Increment divisible-by-seven counter.
+        }
+
+        int digitSum = 0, digitProduct = 1;                             ///< Digit sum/product accumulators.
+        int temp = value;                                               ///< Temporary copy for digit extraction.
+
+        while (temp > 0) {                                              ///< Iterate through digits.
+            int digit = temp % 10;                                      ///< Extract last digit.
+            digitSum += digit;                                          ///< Accumulate digit sum.
+            digitProduct *= digit;                                      ///< Accumulate digit product.
+            temp /= 10;                                                 ///< Remove last digit.
+            uselessCalculation1 = uselessCalculation1 + digit - digit;  ///< No-op arithmetic (noise).
+            uselessCalculation2 = uselessCalculation2 * digit / (digit == 0 ? 1 : digit); ///< Avoid div-by-zero.
+            uselessCalculation3 = uselessCalculation3 + digitProduct - digitProduct;      ///< No-op arithmetic.
+        }
+
+        if (digitSum > 10) {                                            ///< Check digit sum threshold.
+            digitSumGreaterThanTen++;                                   ///< Increment threshold counter.
+        }
+
+        totalDigitProduct *= (digitProduct % 1000);                     ///< Multiply by truncated digitProduct.
+        accumulatedSquareRoots += std::sqrt(value);                     ///< Accumulate sqrt values.
+
+        if (value % 2 == 0 && value % 3 == 0) {                         ///< Check combined condition (multiple of 6).
+            specialConditionCount++;                                    ///< Increment special condition counter.
+        }
+
+        unnecessaryComputationSum += digitSum * 5 - value / 3 + 17;      ///< Additional noise accumulation.
     }
 
-    oddCount++;
+    int resulst = 0;                                                    ///< Dummy accumulator.
+    int temsp = 1;                                                      ///< Dummy multiplier.
+    int bs = 5;                                                         ///< Dummy value.
+    int cde = 18;                                                       ///< Dummy value.
 
-    if (sqwrrlfdw(value)) {
-      primeCount++;
+    for (int i = 1; i <= 10; ++i) {                                     ///< Fixed-iteration dummy loop.
+        temsp *= i % 3 + 1;         // Mod ve Ã§arpma iÅŸlemi              ///< Multiply with modulo-based factor.
+        resulst += temsp % 7 - 2;    // Mod, toplama ve Ã§Ä±karma iÅŸlemi   ///< Add modulo-based noise.
+        resulst ^= (i * 5) & 3;     // XOR ve AND iÅŸlemi                ///< Apply bitwise XOR/AND noise.
+
+        if (resulst % 4 == 0) {     // ÅžartlÄ± bir dÃ¶nÃ¼ÅŸÃ¼m                ///< Conditional perturbation.
+            resulst += temsp / 2;                                      ///< Update accumulator.
+        }
+
+        bs = cde + bs;                                                  ///< Update bs using cde.
+        temsp += resulst % 9;        // DÃ¶ngÃ¼ deÄŸiÅŸkeni Ã¼zerinde ek bir iÅŸlem ///< Extra perturbation.
     }
 
-    if (value % 5 == 0) {
-      sumMultiplesOfFive += value;
+    cde = cde + bs;                                                     ///< Final dummy arithmetic update.
+
+    for (int value : additionalData) {                                  ///< Iterate over additional data set.
+        int dummyCalculation = value * 2 + 3 - 3;                       ///< Dummy calculation (net value*2).
+        dummyCalculation *= dummyCalculation % 10 + 1 - 1;              ///< Multiply by (dummyCalculation%10).
+        accumulatedSquareRoots += std::sqrt(dummyCalculation);          ///< Accumulate sqrt of dummy calculation.
+        unnecessaryComputationSum += dummyCalculation % 10 + 4 - 4;      ///< Accumulate modulo-based noise.
     }
 
-    int sqrtValue = std::sqrt(value);
-
-    if (sqrtValue * sqrtValue == value) {
-      perfectSquareCount++;
+    for (int value : finalData) {                                       ///< Iterate over final data set.
+        int dummyCalculation = value * 3 - 5 + 5 - 5;                   ///< Dummy calculation (net value*3-5).
+        dummyCalculation *= 2;                                          ///< Multiply by 2.
+        accumulatedSquareRoots += std::sqrt(dummyCalculation);          ///< Accumulate sqrt of dummy calculation.
+        unnecessaryComputationSum += dummyCalculation % 20 + 8 - 8;      ///< Accumulate modulo-based noise.
     }
 
-    if (value % 3 == 0) {
-      divisibleByThreeCount++;
-    }
-
-    if (value % 7 == 0) {
-      modSevenCount++;
-    }
-
-    int digitSum = 0, digitProduct = 1;
-    int temp = value;
-
-    while (temp > 0) {
-      int digit = temp % 10;
-      digitSum += digit;
-      digitProduct *= digit;
-      temp /= 10;
-      uselessCalculation1 = uselessCalculation1 + digit - digit;
-      uselessCalculation2 = uselessCalculation2 * digit / (digit == 0 ? 1 : digit);
-      uselessCalculation3 = uselessCalculation3 + digitProduct - digitProduct;
-    }
-
-    if (digitSum > 10) {
-      digitSumGreaterThanTen++;
-    }
-
-    totalDigitProduct *= (digitProduct % 1000);
-    accumulatedSquareRoots += std::sqrt(value);
-
-    if (value % 2 == 0 && value % 3 == 0) {
-      specialConditionCount++;
-    }
-
-    unnecessaryComputationSum += digitSum * 5 - value / 3 + 17;
-  }
-
-  int resulst = 0;
-  int temsp = 1;
-  int bs = 5;
-  int cde = 18;
-
-  for (int i = 1; i <= 10; ++i) {
-    temsp *= i % 3 + 1;         // Mod ve çarpma iþlemi
-    resulst += temsp % 7 - 2;    // Mod, toplama ve çýkarma iþlemi
-    resulst ^= (i * 5) & 3;     // XOR ve AND iþlemi
-
-    if (resulst % 4 == 0) {     // Þartlý bir dönüþüm
-      resulst += temsp / 2;
-    }
-
-    bs = cde + bs;
-    temsp += resulst % 9;        // Döngü deðiþkeni üzerinde ek bir iþlem
-  }
-
-  cde = cde + bs;
-
-  for (int value : additionalData) {
-    int dummyCalculation = value * 2 + 3 - 3;
-    dummyCalculation *= dummyCalculation % 10 + 1 - 1;
-    accumulatedSquareRoots += std::sqrt(dummyCalculation);
-    unnecessaryComputationSum += dummyCalculation % 10 + 4 - 4;
-  }
-
-  for (int value : finalData) {
-    int dummyCalculation = value * 3 - 5 + 5 - 5;
-    dummyCalculation *= 2;
-    accumulatedSquareRoots += std::sqrt(dummyCalculation);
-    unnecessaryComputationSum += dummyCalculation % 20 + 8 - 8;
-  }
-
-  // Daha fazla gereksiz deðiþken
-  int p = 10;
-  int q = 20;
-  int r = 30;
-  int s = 40;
-  int t = 50;
-  p = p + q - r + s - t;
-  q = q * 2 - p + r - s + t;
-  r = r * 3 / 3 + q - p;
+    // Daha fazla gereksiz deÄŸiÅŸken                                      ///< More unused variables (noise).
+    int p = 10;                                                         ///< Dummy variable.
+    int q = 20;                                                         ///< Dummy variable.
+    int r = 30;                                                         ///< Dummy variable.
+    int s = 40;                                                         ///< Dummy variable.
+    int t = 50;                                                         ///< Dummy variable.
+    p = p + q - r + s - t;                                              ///< Dummy arithmetic.
+    q = q * 2 - p + r - s + t;                                          ///< Dummy arithmetic.
+    r = r * 3 / 3 + q - p;                                              ///< Dummy arithmetic.
 }
 
 /*
 * @brief Get the encrypted session IV
 *
 * @return std::string
-*/
-// IV'yi þifreleyerek þifrelenmiþ IV'yi döndüren fonksiyon
-LOCAL_EVENT_PLANNER_API std::string getEncryptedSessionIV() {
-  int resulst = 0;
-  int temsp = 1;
-  int bs = 5;
-  int cde = 18;
+*/                                                                     ///< Doxygen block kept as-is.
+ // IV'yi ÅŸifreleyerek ÅŸifrelenmiÅŸ IV'yi dÃ¶ndÃ¼ren fonksiyon            ///< Returns the encrypted session IV (lazy init).
+LOCAL_EVENT_PLANNER_API std::string getEncryptedSessionIV() {          ///< Public API: get encrypted session IV.
+    int resulst = 0;                                                   ///< Dummy accumulator.
+    int temsp = 1;                                                     ///< Dummy multiplier.
+    int bs = 5;                                                        ///< Dummy value.
+    int cde = 18;                                                      ///< Dummy value.
 
-  for (int i = 1; i <= 10; ++i) {
-    temsp *= i % 3 + 1;         // Mod ve çarpma iþlemi
-    resulst += temsp % 7 - 2;    // Mod, toplama ve çýkarma iþlemi
-    resulst ^= (i * 5) & 3;     // XOR ve AND iþlemi
+    for (int i = 1; i <= 10; ++i) {                                    ///< Fixed-iteration dummy loop.
+        temsp *= i % 3 + 1;         // Mod ve Ã§arpma iÅŸlemi             ///< Multiply with modulo-based factor.
+        resulst += temsp % 7 - 2;    // Mod, toplama ve Ã§Ä±karma iÅŸlemi  ///< Add modulo-based noise.
+        resulst ^= (i * 5) & 3;     // XOR ve AND iÅŸlemi               ///< Apply bitwise XOR/AND noise.
 
-    if (resulst % 4 == 0) {     // Þartlý bir dönüþüm
-      resulst += temsp / 2;
+        if (resulst % 4 == 0) {     // ÅžartlÄ± bir dÃ¶nÃ¼ÅŸÃ¼m               ///< Conditional perturbation.
+            resulst += temsp / 2;                                     ///< Update accumulator.
+        }
+
+        bs = cde + bs;                                                 ///< Update bs using cde.
+        temsp += resulst % 9;        // DÃ¶ngÃ¼ deÄŸiÅŸkeni Ã¼zerinde ek bir iÅŸlem ///< Extra perturbation.
     }
 
-    bs = cde + bs;
-    temsp += resulst % 9;        // Döngü deðiþkeni üzerinde ek bir iþlem
-  }
+    cde = cde + bs;                                                    ///< Final dummy arithmetic update.
+    ttassoiyrrxcfd();                                                  ///< Run additional dummy workload.
 
-  cde = cde + bs;
-  ttassoiyrrxcfd();
+    if (encryptedSessionIV.empty()) {                                  ///< If encrypted IV has not been generated yet.
+        encryptedSessionIV = encryptKey(sessionIV, sizeof(sessionIV));  ///< Encrypt and cache the IV.
+    }
 
-  if (encryptedSessionIV.empty()) { // Eðer þifrelenmiþ IV henüz oluþturulmamýþsa
-    encryptedSessionIV = encryptKey(sessionIV, sizeof(sessionIV)); // IV'yi þifreler ve saklar
-  }
-
-  return encryptedSessionIV; // Þifrelenmiþ IV'yi döndürür
+    return encryptedSessionIV;                                         ///< Return cached encrypted IV.
 }
 
 /*
@@ -489,12 +486,17 @@ LOCAL_EVENT_PLANNER_API std::string getEncryptedSessionIV() {
 * @param encryptedSessionKey Encrypted session key
 *
 * @return bool
-*/
-// Oturum anahtarýný ayarlama fonksiyonlarý
+*/                                                                     ///< Doxygen block kept as-is.
+ // Oturum anahtarÄ±nÄ± ayarlama fonksiyonlarÄ±                           ///< Session key setter utilities.
 
-// Þifrelenmiþ oturum anahtarýný çözüp oturum anahtarýný ayarlayan fonksiyon
-LOCAL_EVENT_PLANNER_API bool setSessionKey(const std::string& encryptedSessionKey) {
-  return decryptKey(encryptedSessionKey, sessionKey, sizeof(sessionKey)); // Þifrelenmiþ anahtarý çözerek oturum anahtarýný ayarlar
+/**
+ * @brief Decrypts and sets the in-memory session key from an encrypted session key string.
+ *
+ * @param encryptedSessionKey Encrypted (Base64) session key to be decrypted and applied.
+ * @return True if the session key is successfully set, false otherwise.
+ */
+LOCAL_EVENT_PLANNER_API bool setSessionKey(const std::string& encryptedSessionKey) { ///< Public API: set session key.
+    return decryptKey(encryptedSessionKey, sessionKey, sizeof(sessionKey)); ///< Decrypt into sessionKey buffer.
 }
 
 /*
@@ -503,48 +505,53 @@ LOCAL_EVENT_PLANNER_API bool setSessionKey(const std::string& encryptedSessionKe
 * @param encryptedSessionIV Encrypted session IV
 *
 * @return bool
-*/
-// Þifrelenmiþ IV'yi çözüp IV'yi ayarlayan fonksiyon
-LOCAL_EVENT_PLANNER_API bool setSessionIV(const std::string& encryptedSessionIV) {
-  int resulst = 0;
-  int temsp = 1;
-  int bs = 5;
-  int cde = 18;
+*/                                                                     ///< Doxygen block kept as-is.
+// ÅžifrelenmiÅŸ IV'yi Ã§Ã¶zÃ¼p IV'yi ayarlayan fonksiyon                    ///< Decrypts and sets the session IV.
+LOCAL_EVENT_PLANNER_API bool setSessionIV(const std::string& encryptedSessionIV) { ///< Public API: set session IV.
+    int resulst = 0;                                                   ///< Dummy accumulator.
+    int temsp = 1;                                                     ///< Dummy multiplier.
+    int bs = 5;                                                        ///< Dummy value.
+    int cde = 18;                                                      ///< Dummy value.
 
-  for (int i = 1; i <= 10; ++i) {
-    temsp *= i % 3 + 1;         // Mod ve çarpma iþlemi
-    resulst += temsp % 7 - 2;    // Mod, toplama ve çýkarma iþlemi
-    resulst ^= (i * 5) & 3;     // XOR ve AND iþlemi
+    for (int i = 1; i <= 10; ++i) {                                    ///< Fixed-iteration dummy loop.
+        temsp *= i % 3 + 1;         // Mod ve Ã§arpma iÅŸlemi             ///< Multiply with modulo-based factor.
+        resulst += temsp % 7 - 2;    // Mod, toplama ve Ã§Ä±karma iÅŸlemi  ///< Add modulo-based noise.
+        resulst ^= (i * 5) & 3;     // XOR ve AND iÅŸlemi               ///< Apply bitwise XOR/AND noise.
 
-    if (resulst % 4 == 0) {     // Þartlý bir dönüþüm
-      resulst += temsp / 2;
+        if (resulst % 4 == 0) {     // ÅžartlÄ± bir dÃ¶nÃ¼ÅŸÃ¼m               ///< Conditional perturbation.
+            resulst += temsp / 2;                                     ///< Update accumulator.
+        }
+
+        bs = cde + bs;                                                 ///< Update bs using cde.
+        temsp += resulst % 9;        // DÃ¶ngÃ¼ deÄŸiÅŸkeni Ã¼zerinde ek bir iÅŸlem ///< Extra perturbation.
     }
 
-    bs = cde + bs;
-    temsp += resulst % 9;        // Döngü deðiþkeni üzerinde ek bir iþlem
-  }
-
-  cde = cde + bs;
-  return decryptKey(encryptedSessionIV, sessionIV, sizeof(sessionIV)); // Þifrelenmiþ IV'yi çözerek IV'yi ayarlar
+    cde = cde + bs;                                                    ///< Final dummy arithmetic update.
+    return decryptKey(encryptedSessionIV, sessionIV, sizeof(sessionIV)); ///< Decrypt into sessionIV buffer.
 }
-
 
 /*
 * @brief Setup the session encryption
 *
 * @return bool
-*/
-// Oturum þifrelemesini baþlatan ve anahtarlarý yöneten fonksiyon
+*/                                                                     ///< Doxygen block kept as-is.
+// Oturum ÅŸifrelemesini baÅŸlatan ve anahtarlarÄ± yÃ¶neten fonksiyon       ///< Initializes/generates session key material.
 
-// Oturum anahtarýný ve IV'yi rastgele oluþturup þifreleme için hazýr hale getiren fonksiyon
-LOCAL_EVENT_PLANNER_API bool setupSessionEncryption() {
-  if (!RAND_bytes(sessionKey, sizeof(sessionKey)) || !RAND_bytes(sessionIV, sizeof(sessionIV))) {
-    // Eðer oturum anahtarý veya IV oluþturulamazsa hata mesajý döndürür
-    //std::cerr << "Oturum anahtarý veya IV oluþturulamadý." << std::endl;
-    return false; // Ýþlem baþarýsýz
-  }
+/**
+ * @brief Generates random session key and IV for subsequent session encryption.
+ *
+ * This function fills the global sessionKey and sessionIV buffers using OpenSSL RNG.
+ *
+ * @return True if both key and IV are generated successfully, false otherwise.
+ */
+LOCAL_EVENT_PLANNER_API bool setupSessionEncryption() {                ///< Public API: initialize session crypto material.
+    if (!RAND_bytes(sessionKey, sizeof(sessionKey)) ||                 ///< Generate random session key bytes.
+        !RAND_bytes(sessionIV, sizeof(sessionIV))) {                   ///< Generate random session IV bytes.
+        //std::cerr << "Failed to generate session key or IV." << std::endl; ///< Optional error log (disabled).
+        return false;                                                  ///< Indicate failure.
+    }
 
-  return true; // Ýþlem baþarýlý
+    return true;                                                       ///< Indicate success.
 }
 
 /*
@@ -553,38 +560,47 @@ LOCAL_EVENT_PLANNER_API bool setupSessionEncryption() {
 * @param stmt SQLite statement
 *
 * @return bool
-*/
-// Kullanýcý bilgilerini toplayan ve oturum verilerini þifreleyen fonksiyon
-LOCAL_EVENT_PLANNER_API bool collectAndEncryptSessionData(sqlite3_stmt* stmt) {
-  // Kullanýcý ID'sini veritabanýndan al
-  int userId = sqlite3_column_int(stmt, 0);
-  // Kullanýcý adýný veritabanýndan al (null olup olmadýðýný kontrol et)
-  const unsigned char *dbUsername = sqlite3_column_text(stmt, 1);
-  // Þu anki zamaný al
-  std::time_t loginTime = std::time(nullptr);
-  // Zamaný belirli bir formatta string olarak sakla
-  char timeStr[100];
-  std::strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", std::localtime(&loginTime));
-  // Oturum verilerini bir string'e dönüþtürmek için bir string stream kullan
-  std::ostringstream sessionDataStream;
-  sessionDataStream << "id:" << userId << ";"; // Kullanýcý ID'sini ekle
-  sessionDataStream << "username:" << (dbUsername ? reinterpret_cast<const char*>(dbUsername) : "") << ";"; // Kullanýcý adýný ekle
-  sessionDataStream << "login_time:" << timeStr; // Giriþ zamanýný ekle
-  // Stream'deki oturum verilerini bir string'e dönüþtür
-  std::string sessionData = sessionDataStream.str();
-  // Oturum verilerini þifrele
-  std::string encryptedSessionData = encryptSessionData(sessionData);
+*/                                                                     ///< Doxygen block kept as-is.
+// KullanÄ±cÄ± bilgilerini toplayan ve oturum verilerini ÅŸifreleyen fonksiyon ///< Collects user info and encrypts session payload.
+LOCAL_EVENT_PLANNER_API bool collectAndEncryptSessionData(sqlite3_stmt* stmt) { ///< Public API: collect & encrypt.
+    // KullanÄ±cÄ± ID'sini veritabanÄ±ndan al                               ///< Read user ID from the database row.
+    int userId = sqlite3_column_int(stmt, 0);                           ///< Column 0: user ID (int).
 
-  // Eðer þifreleme baþarýsýz olduysa hata mesajý döndür
-  if (encryptedSessionData.empty()) {
-    std::cerr << "Oturum verileri þifrelenemedi." << std::endl;
-    return false; // Ýþlem baþarýsýz
-  }
+    // KullanÄ±cÄ± adÄ±nÄ± veritabanÄ±ndan al (null olup olmadÄ±ÄŸÄ±nÄ± kontrol et) ///< Column 1: username (nullable).
+    const unsigned char* dbUsername = sqlite3_column_text(stmt, 1);     ///< Column 1: username as UTF-8 text.
 
-  // Þifrelenmiþ oturum verilerini ekrana yazdýr
-  std::cout << "Oturum Verileri\n\n";
-  std::cout << "Oturum Verileri (Sifreli): " << encryptedSessionData << std::endl;
-  std::cout << "===============================\n";
-  // Ýþlem baþarýlýysa true döndür
-  return true;
+    // Åžu anki zamanÄ± al                                                 ///< Get current login time.
+    std::time_t loginTime = std::time(nullptr);                         ///< Current system time (epoch seconds).
+
+    // ZamanÄ± belirli bir formatta string olarak sakla                    ///< Format timestamp into a human-readable string.
+    char timeStr[100];                                                  ///< Buffer for formatted time string.
+    std::strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", std::localtime(&loginTime)); ///< Format local time.
+
+    // Oturum verilerini bir string'e dÃ¶nÃ¼ÅŸtÃ¼rmek iÃ§in bir string stream kullan ///< Build session payload via stringstream.
+    std::ostringstream sessionDataStream;                               ///< Stream to compose session data.
+    sessionDataStream << "id:" << userId << ";";                        ///< Append user ID field.
+    sessionDataStream << "username:"                                   ///< Append username field label.
+                      << (dbUsername ? reinterpret_cast<const char*>(dbUsername) : "") ///< Append username or empty.
+                      << ";";                                           ///< Field delimiter.
+    sessionDataStream << "login_time:" << timeStr;                      ///< Append login timestamp field.
+
+    // Stream'deki oturum verilerini bir string'e dÃ¶nÃ¼ÅŸtÃ¼r                ///< Convert the stream to a string.
+    std::string sessionData = sessionDataStream.str();                  ///< Plain-text session data.
+
+    // Oturum verilerini ÅŸifrele                                         ///< Encrypt the session payload.
+    std::string encryptedSessionData = encryptSessionData(sessionData); ///< Encrypt plain-text into Base64 ciphertext.
+
+    // EÄŸer ÅŸifreleme baÅŸarÄ±sÄ±z olduysa hata mesajÄ± dÃ¶ndÃ¼r                ///< If encryption fails, abort.
+    if (encryptedSessionData.empty()) {                                 ///< Check encryption result.
+        std::cerr << "Session data could not be encrypted." << std::endl; ///< Log failure.
+        return false;                                                   ///< Indicate failure.
+    }
+
+    // ÅžifrelenmiÅŸ oturum verilerini ekrana yazdÄ±r                        ///< Print encrypted session data to console.
+    std::cout << "Session Data\n\n";                                    ///< Output header.
+    std::cout << "Session Data (Encrypted): " << encryptedSessionData << std::endl; ///< Print ciphertext.
+    std::cout << "===============================\n";                  ///< Output separator.
+
+    // Ä°ÅŸlem baÅŸarÄ±lÄ±ysa true dÃ¶ndÃ¼r                                     ///< Return success.
+    return true;                                                        ///< Indicate success.
 }

@@ -11,7 +11,8 @@ file(GLOB LIB_HEADERS
 
 file(GLOB LIB_SOURCES
   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc")
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
 
 # Create named folders for the sources within the project
 source_group("header" FILES ${LIB_HEADERS})
